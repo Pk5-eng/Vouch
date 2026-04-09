@@ -125,11 +125,8 @@ export default function QuestionDetailPage() {
       return;
     }
 
-    // Update question's updated_at to bump it in the feed (activity-weighted recency)
-    await supabase
-      .from('questions')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', questionId);
+    // Note: question's updated_at is automatically bumped by a DB trigger on response insert
+    // This powers the activity-weighted recency feed sort
 
     // Notify question author
     if (question && question.author_id !== user.id) {

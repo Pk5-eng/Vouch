@@ -30,7 +30,7 @@ CREATE TABLE trust_group_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id UUID REFERENCES trust_groups(id) ON DELETE CASCADE,
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  role TEXT DEFAULT 'member',
+  role TEXT DEFAULT 'member' CHECK (role IN ('creator', 'member')),
   vouch_context TEXT,
   joined_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(group_id, user_id)
@@ -41,11 +41,11 @@ CREATE TABLE questions (
   author_id UUID REFERENCES users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   context TEXT,
-  category TEXT NOT NULL,
-  visibility TEXT NOT NULL DEFAULT 'global',
+  category TEXT NOT NULL CHECK (category IN ('career', 'academics', 'life', 'emotional', 'logistics', 'building')),
+  visibility TEXT NOT NULL DEFAULT 'global' CHECK (visibility IN ('global', 'trust_group', 'veiled')),
   trust_group_id UUID REFERENCES trust_groups(id) ON DELETE SET NULL,
   is_veiled BOOLEAN DEFAULT FALSE,
-  status TEXT NOT NULL DEFAULT 'open',
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved')),
   outcome_text TEXT,
   outcome_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -82,13 +82,32 @@ CREATE TABLE gratitude_notes (
 CREATE TABLE notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  type TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('new_response', 'marked_helpful', 'outcome_posted', 'group_invite', 'group_question', 'vouch_received')),
   title TEXT NOT NULL,
   body TEXT,
   link TEXT,
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================================
+-- TRIGGERS
+-- ============================================================
+
+-- Automatically bump question's updated_at when a new response is added
+-- This powers the activity-weighted recency feed sort
+CREATE OR REPLACE FUNCTION update_question_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE questions SET updated_at = NOW() WHERE id = NEW.question_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_update_question_on_response
+  AFTER INSERT ON responses
+  FOR EACH ROW
+  EXECUTE FUNCTION update_question_timestamp();
 
 -- ============================================================
 -- VIEWS
@@ -122,6 +141,9 @@ CREATE INDEX idx_notifications_user ON notifications(user_id);
 CREATE INDEX idx_notifications_unread ON notifications(user_id, is_read);
 CREATE INDEX idx_trust_group_members_group ON trust_group_members(group_id);
 CREATE INDEX idx_trust_group_members_user ON trust_group_members(user_id);
+CREATE INDEX idx_trust_groups_created_by ON trust_groups(created_by);
+CREATE INDEX idx_gratitude_notes_from_user ON gratitude_notes(from_user_id);
+CREATE INDEX idx_responses_created_at ON responses(created_at);
 
 -- ============================================================
 -- ROW LEVEL SECURITY
@@ -162,6 +184,9 @@ CREATE POLICY "Authenticated users can create trust groups" ON trust_groups
 
 CREATE POLICY "Creators can update their trust groups" ON trust_groups
   FOR UPDATE USING (auth.uid() = created_by);
+
+CREATE POLICY "Creators can delete their trust groups" ON trust_groups
+  FOR DELETE USING (auth.uid() = created_by);
 
 -- Trust Group Members
 CREATE POLICY "Members viewable by group members" ON trust_group_members
@@ -256,8 +281,11 @@ CREATE POLICY "Users can create gratitude notes" ON gratitude_notes
 CREATE POLICY "Users see their own notifications" ON notifications
   FOR SELECT USING (user_id = auth.uid());
 
-CREATE POLICY "System can create notifications" ON notifications
-  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+-- Note: In production, notifications should be created via a SECURITY DEFINER function
+-- to prevent users from sending arbitrary notifications. This policy prevents self-notification
+-- and requires authentication as a baseline guard for the prototype.
+CREATE POLICY "Authenticated users can create notifications" ON notifications
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated' AND user_id != auth.uid());
 
 CREATE POLICY "Users can update their own notifications" ON notifications
   FOR UPDATE USING (user_id = auth.uid());

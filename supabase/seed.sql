@@ -18,8 +18,8 @@ INSERT INTO users (id, email, display_name, bio, notification_email) VALUES
 -- SEED TRUST GROUP
 -- ============================================================
 
-INSERT INTO trust_groups (id, name, description, created_by) VALUES
-  ('b1b2c3d4-0001-4000-8000-000000000001', 'Career Brain Trust', 'A small circle for the big career questions', 'a1b2c3d4-0001-4000-8000-000000000001');
+INSERT INTO trust_groups (id, name, description, created_by, is_private) VALUES
+  ('b1b2c3d4-0001-4000-8000-000000000001', 'Career Brain Trust', 'A small circle for the big career questions', 'a1b2c3d4-0001-4000-8000-000000000001', TRUE);
 
 -- ============================================================
 -- SEED TRUST GROUP MEMBERS
@@ -45,13 +45,13 @@ INSERT INTO questions (id, author_id, title, context, category, visibility, stat
    'I turned down the offer. Two weeks in and it''s terrifying but I wake up excited every morning. Priya''s advice about the first 90 days was exactly what I needed. Building in public, shipping fast, talking to users every day.',
    NOW() - INTERVAL '2 days');
 
--- Q2: Veiled, global, emotional
+-- Q2: Veiled, emotional
 INSERT INTO questions (id, author_id, title, context, category, visibility, is_veiled) VALUES
   ('c1b2c3d4-0002-4000-8000-000000000002',
    'a1b2c3d4-0004-4000-8000-000000000004',
    'I feel like I''m disappointing my parents by not wanting to be an engineer. Has anyone navigated family pressure about career choices?',
    'First-gen student. My parents immigrated so I could have opportunities they didn''t. They see engineering as the safe, respectable path. But I''m drawn to design and product work. I feel guilty even thinking about it. Has anyone else dealt with this kind of pressure? How did you have that conversation?',
-   'emotional', 'global', TRUE);
+   'emotional', 'veiled', TRUE);
 
 -- Q3: Maria, trust group, life
 INSERT INTO questions (id, author_id, title, context, category, visibility, trust_group_id) VALUES
