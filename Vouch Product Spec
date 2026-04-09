@@ -1,0 +1,933 @@
+# Vouch — Product Specification & Build Document (v2)
+
+## PURPOSE
+This document is a complete product specification for building a working prototype of Vouch — a trust-based social platform where users post life questions and receive experience-based responses. The platform has a public global feed as the front door and opt-in trust groups as the retention and differentiation mechanic. Structured for Claude Code to implement as a Next.js application with Supabase backend.
+
+---
+
+## TECH STACK
+
+- **Framework:** Next.js 14+ (App Router)
+- **Styling:** Tailwind CSS
+- **Database:** Supabase (PostgreSQL + Auth + Realtime)
+- **Deployment:** Vercel (frontend), Supabase (backend)
+- **Auth:** Supabase Auth (email magic link for MVP)
+- **Notifications:** Email via connected email account
+
+---
+
+## CORE CONCEPT
+
+**Tagline:** "In a world with a billion opinions, filter the ones that matter."
+
+**Platform motivation (shown during onboarding):**
+Every day, millions of people turn to the internet with real questions about their lives — career decisions, personal struggles, big transitions. They get anonymous hot takes, AI-generated content, and performative advice from strangers. Vouch is different. Here, people share real experiences from real lives. You start in an open community of genuine questions. Over time, you build trust circles — small groups of people whose judgment you actually value — so you can filter the signal from the noise on the questions that matter most.
+
+---
+
+## DATA MODEL
+
+### Tables
+
+```sql
+-- Users
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT UNIQUE NOT NULL,
+  display_name TEXT NOT NULL,
+  bio TEXT,
+  avatar_url TEXT,
+  notification_email TEXT, -- email for receiving notifications (can differ from login email)
+  notifications_enabled BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Trust Groups (user-created trust circles)
+CREATE TABLE trust_groups (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  created_by UUID REFERENCES users(id) ON DELETE CASCADE,
+  is_private BOOLEAN DEFAULT FALSE, -- private groups are invite-only
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Trust Group Members
+CREATE TABLE trust_group_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID REFERENCES trust_groups(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT DEFAULT 'member', -- 'creator' | 'member'
+  vouch_context TEXT, -- why this person was added / what they bring
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(group_id, user_id)
+);
+
+-- Questions (the core content unit)
+CREATE TABLE questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL, -- "What are you trying to figure out?"
+  context TEXT, -- "What context would help someone respond?"
+  category TEXT NOT NULL, -- "career", "academics", "life", "emotional", "logistics", "building"
+  visibility TEXT NOT NULL DEFAULT 'global', -- 'global' | 'trust_group' | 'veiled'
+  trust_group_id UUID REFERENCES trust_groups(id) ON DELETE SET NULL, -- if visibility = 'trust_group'
+  is_veiled BOOLEAN DEFAULT FALSE,
+  status TEXT NOT NULL DEFAULT 'open', -- 'open' | 'resolved'
+  outcome_text TEXT,
+  outcome_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Responses (experience-based answers)
+CREATE TABLE responses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  experience TEXT NOT NULL, -- "What's your relevant experience?"
+  takeaway TEXT, -- "What did you learn?"
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Helpfulness Ratings (anyone in the conversation/group can rate)
+-- This replaces the old single-user gratitude model.
+-- Any user who can see the question can rate any response as helpful.
+-- One rating per user per response. Ratings accumulate on the responder's profile.
+CREATE TABLE helpfulness_ratings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  response_id UUID REFERENCES responses(id) ON DELETE CASCADE,
+  rated_by UUID REFERENCES users(id) ON DELETE CASCADE,
+  is_from_asker BOOLEAN DEFAULT FALSE, -- true if the question author rated this
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(response_id, rated_by)
+);
+
+-- Gratitude Notes (optional private thank-you, sent during outcome/close-the-loop)
+-- Separate from helpfulness ratings. These are personal messages.
+CREATE TABLE gratitude_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  response_id UUID REFERENCES responses(id) ON DELETE CASCADE,
+  from_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  note TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(response_id, from_user_id)
+);
+
+-- View: Helpfulness Score per user
+-- This is the accumulated reputation signal used for discovery and trust group invites.
+CREATE OR REPLACE VIEW user_helpfulness AS
+SELECT
+  r.author_id AS user_id,
+  COUNT(hr.id) AS total_helpful_ratings,
+  COUNT(CASE WHEN hr.is_from_asker THEN 1 END) AS helpful_to_asker_count,
+  COUNT(DISTINCT r.question_id) AS questions_helped_on
+FROM responses r
+LEFT JOIN helpfulness_ratings hr ON hr.response_id = r.id
+GROUP BY r.author_id;
+
+-- Notifications
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL, -- 'new_response' | 'marked_helpful' | 'outcome_posted' | 'group_invite' | 'vouch_received'
+  title TEXT NOT NULL,
+  body TEXT,
+  link TEXT, -- relative URL to navigate to
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+---
+
+## APPLICATION ARCHITECTURE
+
+### Pages & Routes
+
+```
+/                           → Landing page (unauthenticated) / Global Feed (authenticated)
+/auth/login                 → Email magic link login
+/auth/callback              → Supabase auth callback
+/onboarding                 → First-time user flow (2 steps)
+/feed                       → Global feed (default home)
+/ask                        → Post a new question
+/question/[id]              → Question detail + responses
+/question/[id]/outcome      → Close the loop / post outcome
+/profile/[id]               → User profile
+/groups                     → Your trust groups
+/groups/create              → Create a new trust group
+/groups/[id]                → Trust group feed + members
+/groups/[id]/invite         → Invite someone to trust group
+/notifications              → Notification center
+/settings                   → Account settings, notification email
+```
+
+---
+
+## FLOW 1: ONBOARDING (First-Time User)
+
+### Entry Points
+- User clicks invite link from email (arrives with referrer context)
+- User discovers platform organically (no invite required for global access)
+
+### Step 1: Identity Setup + Platform Motivation
+
+**Screen layout:** Clean, centered single-column card on white/off-white background. No sidebar, no navigation, no distractions.
+
+**Top section — Platform Motivation:**
+Large, warm heading:
+> **"In a world with a billion opinions, filter the ones that matter."**
+
+Below it, 2-3 lines of body text:
+> Vouch is where real questions meet real experience. Ask what matters. Hear from people who've been there. Build circles of people you actually trust.
+
+**Form section:**
+
+**Field 1: Display Name**
+- Label: "Your name"
+- Subtext beneath the field: *"We encourage using your real name — it builds trust and helps others know who they're hearing from."*
+- Input: Single line text
+- Required: Yes
+
+**Field 2: Email for Notifications**
+- Label: "Notification email"
+- Subtext: *"We'll send you a note when someone responds to your question or finds your experience helpful. Nothing else."*
+- Input: Email field. Pre-filled with signup email. User can change it.
+- Required: Yes
+- Checkbox below: ☑ "Send me notifications" (default checked)
+
+**Field 3: Short Bio**
+- Label: "A bit about you"
+- Input: Textarea, 160 chars max
+- Required: No
+- Placeholder: *"e.g. Product designer, career changer, figuring things out one question at a time"*
+
+**Button:** "Enter Vouch"
+
+**What this screen does NOT include:**
+- No university field (optional context can go in bio if user wants)
+- No cohort year
+- No profile photo upload (available later in settings)
+- No "import contacts" or "find friends"
+- No interest/topic selection
+
+### Step 2: User Enters the Global Feed
+
+After completing Step 1, the user lands directly on the global feed (/ or /feed). No additional onboarding steps required.
+
+**First-time user experience on the global feed:**
+
+A subtle, dismissible welcome banner at the top of the feed:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 👋 Welcome to Vouch                                    [✕]│
+│                                                                 │
+│ This is the global feed — real questions from real people.      │
+│ Browse, respond with your experience, or ask your own question. │
+│                                                                 │
+│ When you're ready, create a Trust Group — a small circle of     │
+│ people whose judgment you value — to ask the questions that     │
+│ matter most to you.                                             │
+│                                                                 │
+│ [Ask Your First Question]     [Create a Trust Group]            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This banner disappears after the user either dismisses it, asks a question, or creates a trust group.
+
+---
+
+## FLOW 2: THE GLOBAL FEED (Home Screen)
+
+### URL: / (authenticated)
+
+### Layout
+
+**Top bar:**
+- Left: Vouch wordmark/logo
+- Right: Notification bell (with unread count dot) + Avatar/profile link
+
+**Below top bar — two primary navigation tabs:**
+```
+[🌐 Global Feed]     [👥 Your Trust Groups]
+```
+Global Feed is selected by default. "Your Trust Groups" leads to /groups.
+
+**Below tabs — Category filter pills:**
+```
+[All] [Career] [Academics] [Life] [Emotional] [Logistics] [Building Together]
+```
+
+**Below filters — contextual utility text:**
+A small, muted line of text below the filters:
+> *"Real questions from the community. Respond with your experience, or ask your own."*
+
+**Below utility text — Question cards:**
+Stacked vertically with generous spacing. No infinite scroll — "Load more" button after 15 cards.
+
+**Floating action button (bottom right on mobile, or prominent button in top area on desktop):**
+"Ask a Question" — primary accent color, always visible.
+
+**Sidebar or prominent card on desktop (top of feed on mobile):**
+```
+┌─────────────────────────────────────────────┐
+│ 🔒 Trust Groups                             │
+│                                             │
+│ Create a small circle of people you trust   │
+│ to ask the questions you wouldn't ask       │
+│ everyone.                                   │
+│                                             │
+│ [Create a Trust Group]                      │
+│                                             │
+│ Your groups:                                │
+│ · Career Brain Trust (5 members)            │
+│ · Close Friends (3 members)                 │
+└─────────────────────────────────────────────┘
+```
+
+If user has no groups yet, this card shows:
+```
+┌─────────────────────────────────────────────┐
+│ 🔒 Trust Groups                             │
+│                                             │
+│ Some questions deserve a smaller audience.  │
+│ Create a trust group — invite people whose  │
+│ experience you value — and ask the hard     │
+│ questions with people you trust.            │
+│                                             │
+│ [Create Your First Trust Group]             │
+└─────────────────────────────────────────────┘
+```
+
+### Question Card in Global Feed
+
+```
+┌─────────────────────────────────────────────┐
+│ [A] Alex Chen · 2 hours ago                 │
+│                                             │
+│ Has anyone turned down a big tech offer to  │
+│ work on their own thing? What did the first │
+│ 6 months look like?                         │
+│                                             │
+│ [Career]  · 3 responses                     │
+└─────────────────────────────────────────────┘
+```
+
+For trust group questions visible to the user:
+```
+┌─────────────────────────────────────────────┐
+│ [M] Maria Santos · Career Brain Trust       │
+│ · 1 day ago                                 │
+│                                             │
+│ I'm 28 surrounded by 23-year-olds in my     │
+│ MBA cohort. Anyone else dealt with the age  │
+│ gap feeling?                                │
+│                                             │
+│ [Life]  · 5 responses · ✓ Resolved          │
+└─────────────────────────────────────────────┘
+```
+
+For veiled questions:
+```
+┌─────────────────────────────────────────────┐
+│ [?] A verified member · 5 hours ago         │
+│                                             │
+│ I feel like I'm disappointing my parents by │
+│ not wanting to be an engineer.              │
+│                                             │
+│ [Emotional]  · 7 responses                  │
+└─────────────────────────────────────────────┘
+```
+
+### Feed Sorting (Global)
+- Default: Newest first (chronological)
+- Questions with recent responses float up slightly (activity-weighted recency, NOT engagement-ranked)
+- Resolved questions with new outcomes get a brief boost
+- NO trending, NO popularity ranking, NO algorithmic personalization
+
+---
+
+## FLOW 3: ASK A QUESTION
+
+### URL: /ask
+
+**Page header:** "Ask a question"
+**Utility text below header:** *"The best questions are specific and honest. Share what you're actually trying to figure out — you'll get better responses."*
+
+**Field 1: Title**
+- Label: "What are you trying to figure out?"
+- Input: Single line text, 200 chars max
+- Required: Yes
+- Placeholder: *"e.g. Has anyone switched from engineering to product management in their third year?"*
+
+**Field 2: Context**
+- Label: "What context would help someone respond?"
+- Input: Multi-line text, 1000 chars max
+- Required: No
+- Placeholder: *"e.g. I'm a CS junior, love building products but feeling burnt out on pure coding..."*
+- Helper text: *"The more context you share, the more relevant responses you'll get."*
+
+**Field 3: Category**
+- Label: "What area is this about?"
+- Input: Single-select pill buttons
+- Options: Career | Academics | Life | Emotional | Logistics | Building Together
+- Required: Yes
+
+**Field 4: Visibility**
+- Label: "Who should see this?"
+- Three radio cards:
+
+```
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ 🌐 Everyone  │ │ 👥 Trust     │ │ 👤 Veiled    │
+│   (DEFAULT)  │ │    Group     │ │              │
+│              │ │              │ │              │
+│ Visible on   │ │ Only members │ │ Everyone can │
+│ the global   │ │ of a trust   │ │ see this but │
+│ feed. Your   │ │ group you    │ │ won't know   │
+│ name is      │ │ choose. Your │ │ it's you.    │
+│ visible.     │ │ name visible │ │              │
+│              │ │ to them.     │ │              │
+└──────────────┘ └──────────────┘ └──────────────┘
+```
+
+If "Trust Group" is selected, a dropdown appears: "Choose a group" listing user's trust groups. If user has no groups, show: "You haven't created a trust group yet. [Create one now]"
+
+**Submit button:** "Ask"
+
+### Backend Logic
+1. Create question record
+2. If global: visible to all authenticated users
+3. If trust_group: visible only to members of selected group
+4. If veiled: visible to all but author_id hidden from API responses
+5. Send email notification to trust group members (if trust_group visibility)
+6. Create in-app notification records
+
+---
+
+## FLOW 4: RESPOND TO A QUESTION
+
+### URL: /question/[id]
+
+**Page layout:**
+
+Question displayed at top with full context. Below it, a utility text line:
+> *"Respond with what you've actually been through. Specific experiences help more than general advice."*
+
+**Existing responses:** Listed chronologically. Each response card:
+
+```
+┌─────────────────────────────────────────────┐
+│ [P] Priya Sharma · 1 hour ago               │
+│                                             │
+│ THEIR EXPERIENCE                            │
+│ [Experience text]                           │
+│                                             │
+│ WHAT THEY LEARNED                           │
+│ [Takeaway text]                             │
+│                                             │
+│                          [♡ This helped]    │
+└─────────────────────────────────────────────┘
+```
+
+**"This helped" — visible to ALL users who can see the question (not just the asker).** Small heart icon. Tapping records a helpfulness rating. The count is NOT shown on the response card itself — no visible number next to the heart. However, these ratings accumulate on the responder's profile as a helpfulness score, making them discoverable for trust group invites. If the question author taps it, the rating is flagged as `is_from_asker` (carries slightly more weight in the profile display). The heart fills/changes color to indicate you've already rated it.
+
+**Response form (below all responses):**
+
+```
+┌─────────────────────────────────────────────┐
+│ Share your experience                       │
+│                                             │
+│ What's your relevant experience?            │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Placeholder: "Share what you went       │ │
+│ │ through. Be specific — it helps more    │ │
+│ │ than general advice."                   │ │
+│ └─────────────────────────────────────────┘ │
+│ Minimum 100 characters · 0/2000            │
+│                                             │
+│ What did you learn from it? (optional)      │
+│ ┌─────────────────────────────────────────┐ │
+│ │ Placeholder: "If you could tell your    │ │
+│ │ past self one thing about this..."      │ │
+│ └─────────────────────────────────────────┘ │
+│                              0/500          │
+│                                             │
+│                     [Share Experience]       │
+└─────────────────────────────────────────────┘
+```
+
+**No threading.** Responses are to the question only. No reply-to-response. No @-mentions. No sub-threads.
+
+---
+
+## FLOW 5: CLOSE THE LOOP (Outcome)
+
+### URL: /question/[id]/outcome
+
+Accessible via button on question detail page: **"Share what happened"**
+
+**Utility text at top:** *"Closing the loop helps everyone — it shows what happened and lets you thank the people who showed up."*
+
+**Field 1: Outcome**
+- Label: "What did you end up doing?"
+- Input: Multi-line text, 1000 chars max
+- Required: Yes
+
+**Field 2: Gratitude**
+- Label: "Did anyone's response particularly help?"
+- Input: Checkboxes next to each responder's name. For each checked, optional private note (200 chars).
+- Required: No
+
+**Submit button:** "Close the loop"
+
+**Post-submit:**
+- Question status → 'resolved'
+- Outcome visible to all who can see the question
+- "✓ Resolved" badge appears on question card everywhere
+- Thanked responders receive email + in-app notification
+- Question card in feeds shows outcome preview
+
+---
+
+## FLOW 6: TRUST GROUPS
+
+### Creating a Trust Group
+
+**URL: /groups/create**
+
+**Page header:** "Create a Trust Group"
+**Utility text:** *"A trust group is a small circle of people whose experience and judgment you value. Ask questions here that you wouldn't ask everyone."*
+
+**Field 1: Group Name**
+- Input: Text, 50 chars max
+- Required: Yes
+- Placeholder: *"e.g. Career Brain Trust, Close Friends, Startup Crew"*
+
+**Field 2: Description**
+- Input: Textarea, 200 chars max
+- Required: No
+- Placeholder: *"What's this group for?"*
+
+**Field 3: Invite Members**
+- Search bar: Find existing Vouch users by name
+- For non-users: Enter email to send invite
+- For each person added, prompt: "Why are you adding [name]?" (optional, 200 chars) — this becomes their vouch_context
+- Minimum: 1 member (besides creator)
+
+**Suggested People section (below search bar):**
+If the group has a category context (e.g. group description mentions "career"), surface users who have high helpfulness ratings in that category. Display as:
+```
+Suggested based on helpful responses:
+┌──────────────────────────────────────────────┐
+│ [A] Priya Sharma · Highly valued             │
+│ Recognized as helpful by 24 people across    │
+│ 15 conversations in Career                   │
+│                                    [+ Invite]│
+└──────────────────────────────────────────────┘
+```
+If no category context, suggest users whose responses the group creator has previously rated as helpful. This closes the loop: you rate someone helpful in the global feed → later when creating a trust group, the platform reminds you they exist.
+
+**Button:** "Create Group"
+
+### Trust Group Feed
+
+**URL: /groups/[id]**
+
+**Layout:** Same as global feed but scoped to group.
+
+**Header:** Group name + member count + description
+**Utility text:** *"Questions here are only visible to group members. This is a space for the questions that need a trusted audience."*
+
+**Member list:** Expandable section showing all members with their vouch_context ("Why they're here").
+
+**"Ask this group" button** — opens /ask with trust_group pre-selected.
+
+**"Invite someone" button** — opens /groups/[id]/invite
+
+### Trust Group on Home Screen
+
+Trust groups are surfaced in two places:
+
+1. **The "Your Trust Groups" tab** on the home screen — shows all groups with latest question preview
+2. **The Trust Groups card** (sidebar on desktop, card on mobile) — always visible on the global feed, constantly reminding users that trust groups exist
+
+### Contextual Nudges Toward Trust Groups
+
+At strategic moments, the platform suggests trust groups:
+
+- **After asking a global question:** "Want to ask this to a smaller, trusted audience next time? [Create a Trust Group]"
+- **After receiving a particularly helpful response:** "Want [responder name] in a trust group? [Create a group and invite them]"
+- **After reading 5+ questions in the global feed:** Soft banner: "Some questions deserve a smaller audience. [Create a Trust Group]"
+
+These nudges are subtle, dismissible, and never repeated once dismissed.
+
+---
+
+## FLOW 7: USER PROFILE
+
+### URL: /profile/[id]
+
+**Header section:**
+- Display name, bio, avatar
+- Join date
+- Stats: "X questions asked · X experiences shared · X loops closed"
+
+**Helpfulness indicator:**
+Displayed below stats, only if the user has received ratings. Shows as a warm, non-numeric signal:
+
+- 5+ ratings: "Helpful" (small badge)
+- 15+ ratings: "Very helpful" (badge)
+- 30+ ratings: "Highly valued" (badge)
+
+Below the badge, a line: "Recognized as helpful by X people across Y conversations"
+
+This gives enough signal for trust group discovery without creating a leaderboard. The thresholds and labels can be tuned post-launch based on actual distribution.
+
+**Utility text:** *"A person's profile shows how they show up — the questions they ask, the experiences they share, and what others say about them."*
+
+**Section: "What People Say"**
+- If the user is in any trust groups, show vouch_context entries from group creators/members
+- Each shows: Who said it + what they said + which group
+- This section only appears if vouches exist
+
+**Section: "Recent Activity"**
+- Questions asked (with status: open/resolved)
+- Responses shared (linked to parent question)
+- Outcomes posted
+
+**Section: "Add to Trust Group" (visible to other users viewing this profile)**
+If the profile viewer has trust groups, show a button: **"Invite [Name] to a group"**
+This links to the group invite flow with the person pre-filled. This is the key connection between helpfulness ratings and trust group growth — you read a helpful response, visit the profile, see the helpfulness badge, and invite them to your group.
+
+**What this page does NOT show:**
+- No follower/following count
+- No exact helpfulness rating count on individual responses
+- No engagement metrics
+- No veiled questions the user asked
+- No "times viewed"
+- No ranking relative to other users
+
+---
+
+## FLOW 8: NOTIFICATIONS
+
+### In-App Notification Center
+
+**URL: /notifications**
+
+**Utility text at top:** *"You'll only hear from us when something real happens — a response to your question, someone finding your experience helpful, or an invite to a trust group."*
+
+List of notification cards, newest first:
+
+```
+┌─────────────────────────────────────────────┐
+│ 🔵 Priya Sharma shared their experience on  │
+│ your question about turning down a tech     │
+│ offer.                                      │
+│ 2 hours ago                                 │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ Alex said your experience helped: "Your     │
+│ story about the first 3 months was exactly  │
+│ what I needed."                             │
+│ Yesterday                                   │
+└─────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────┐
+│ Maria invited you to the trust group        │
+│ "Career Brain Trust"                        │
+│ 2 days ago                     [Accept]     │
+└─────────────────────────────────────────────┘
+```
+
+### Email Notifications
+
+Sent to the user's notification_email. One email per event, not batched (for MVP). Clean, text-forward design — no heavy HTML templates.
+
+**Notification types and triggers:**
+
+| Event | In-App | Email | Text |
+|-------|--------|-------|------|
+| Someone responds to your question | ✅ | ✅ | "[Name] shared their experience on your question: [title preview]" |
+| Your response rated helpful | ✅ | ✅ (batched: "X people found your experience helpful today") | "[Name] found your experience helpful" — individual in-app, batched daily via email to avoid notification spam |
+| Outcome posted on question you responded to | ✅ | ✅ | "[Name] closed the loop: [outcome preview]" |
+| Invited to a trust group | ✅ | ✅ | "[Name] invited you to [group name]" |
+| New question in your trust group | ✅ | ✅ | "[Name] asked [group name]: [title preview]" |
+
+**What does NOT trigger notifications:**
+- Someone viewing your profile
+- Someone reading your response
+- Global feed activity
+- Any engagement metrics
+
+---
+
+## VEILED QUESTION MECHANICS
+
+### Posting
+1. User selects "Veiled" visibility
+2. Question appears in global feed with generic avatar and "A verified member" attribution
+3. author_id stored in DB but omitted from API responses when is_veiled = true
+
+### Responding
+- Responders use their real identity
+- Question author sees all responder identities
+
+### Reveal Mechanic
+- On question detail (author view), each response has "Reveal yourself to [Name]" button
+- One-way reveal: author → specific responder only
+- Notification sent to responder: "The person who asked about [title] wants to connect — it was [Name]"
+
+### Privacy
+- Veiled questions do NOT appear on author's profile
+- Veiled status cannot be changed after posting
+
+---
+
+## UI/UX DESIGN PRINCIPLES
+
+### Visual Design
+- Clean, minimal, warm. Think Apple Notes meets a thoughtful journal.
+- White/off-white backgrounds. Warm accent color (teal or deep blue-green).
+- Generous whitespace. No density optimization.
+- Typography-first: 16px min body, 1.6 line height.
+- No infinite scroll — paginated with "Load more" after 15 items.
+
+### Contextual Utility Text
+**Every page/feature has a brief line of text explaining what it's for and why it works this way.** This is a core design principle — the platform teaches its own culture through the interface. These texts are:
+- Short (1-2 sentences)
+- Warm and direct (not corporate)
+- Focused on the user's benefit ("helps you...") not the platform's mechanics
+- Muted in visual weight (smaller font, gray text) so they don't dominate
+
+Examples already specified per flow above. Additional instances:
+
+| Page | Utility Text |
+|------|-------------|
+| Global feed | "Real questions from the community. Respond with your experience, or ask your own." |
+| Trust group feed | "Questions here are only visible to group members. A space for the questions that need a trusted audience." |
+| Ask page | "The best questions are specific and honest. Share what you're actually trying to figure out." |
+| Response form | "Respond with what you've actually been through. Specific experiences help more than general advice." |
+| Profile page | "A person's profile shows how they show up — the questions they ask, the experiences they share, and what people say about them." |
+| Notifications | "You'll only hear from us when something real happens." |
+| Outcome page | "Closing the loop helps everyone — it shows what happened and lets you thank the people who showed up." |
+| Create trust group | "A trust group is a small circle of people whose experience and judgment you value." |
+| Onboarding | "In a world with a billion opinions, filter the ones that matter." |
+
+### Anti-Patterns (Things to explicitly NOT build)
+- No follower counts anywhere
+- No public like/upvote counts ON INDIVIDUAL RESPONSE CARDS (helpfulness ratings accumulate on profiles, not on cards)
+- No trending section
+- No algorithmic feed ranking
+- No infinite scroll
+- No stories/ephemeral content
+- No content recommendations
+- No "who viewed your profile"
+- No gamification (streaks, badges, levels) — the helpfulness tiers are NOT gamification; they are earned reputation signals with no streaks, no competition, no leaderboard
+- No share-to-external-platform buttons
+- No engagement metric dashboards
+- No threading/reply-to-reply
+
+---
+
+## INVITATION SYSTEM (Updated)
+
+### Two Entry Paths
+
+**Path 1: Organic signup.** Anyone can create an account and access the global feed. No invite required. This enables growth beyond invite chains.
+
+**Path 2: Trust group invite.** Existing users invite others into specific trust groups. The invite email includes the inviter's name, the group name, and why they were invited. If the invitee isn't on Vouch, they sign up first, then are added to the group.
+
+### Invite Flow (Trust Group)
+
+1. User goes to /groups/[id]/invite
+2. Search for existing user OR enter email of non-user
+3. Optional: "Why are you inviting [name]?" (becomes vouch_context)
+4. System sends email:
+   > **[Name] invited you to "[Group Name]" on Vouch**
+   > They said: "[vouch context]"
+   > Vouch is where real questions meet real experience.
+   > [Join and accept invite]
+5. New user signs up → completes onboarding → auto-added to the trust group
+
+---
+
+## KEY UI COMPONENTS
+
+### QuestionCard
+Used in global feed, trust group feeds, and profiles.
+```
+┌─────────────────────────────────────────────┐
+│ [Avatar] Display Name · [Context] · Time    │
+│                                             │
+│ Question title (max 2 lines, truncated)     │
+│                                             │
+│ [Category Pill]  · X responses              │
+│ [✓ Resolved badge + outcome preview if any] │
+└─────────────────────────────────────────────┘
+```
+Context = trust group name (if trust_group question) or empty (if global) or "A verified member" (if veiled)
+
+### ResponseCard
+Used on question detail page.
+```
+┌─────────────────────────────────────────────┐
+│ [Avatar] Display Name · Time                │
+│                                             │
+│ THEIR EXPERIENCE                            │
+│ (Experience text)                           │
+│                                             │
+│ WHAT THEY LEARNED                           │
+│ (Takeaway text, if provided)                │
+│                                             │
+│                          [♡ This helped]    │
+└─────────────────────────────────────────────┘
+```
+
+### TrustGroupCard
+Used in sidebar/trust groups section on home screen.
+```
+┌─────────────────────────────────────────────┐
+│ 👥 Group Name · X members                   │
+│ Latest: "Question title preview..."         │
+│ 3 hours ago                                 │
+└─────────────────────────────────────────────┘
+```
+
+### NotificationCard
+Used in /notifications.
+```
+┌─────────────────────────────────────────────┐
+│ 🔵 [Notification text]                      │
+│ [Time ago]                     [Action btn] │
+└─────────────────────────────────────────────┘
+```
+
+---
+
+## FILE STRUCTURE
+
+```
+/app
+  /auth
+    /login/page.tsx
+    /callback/route.ts
+  /onboarding/page.tsx
+  /feed/page.tsx              -- Global feed (also served at /)
+  /ask/page.tsx
+  /question/[id]/page.tsx
+  /question/[id]/outcome/page.tsx
+  /profile/[id]/page.tsx
+  /groups/page.tsx            -- List of user's trust groups
+  /groups/create/page.tsx
+  /groups/[id]/page.tsx       -- Trust group feed
+  /groups/[id]/invite/page.tsx
+  /notifications/page.tsx
+  /settings/page.tsx
+  layout.tsx
+  page.tsx                    -- Landing (unauth) or redirect to /feed (auth)
+/components
+  /ui
+    Button.tsx
+    Input.tsx
+    Textarea.tsx
+    Badge.tsx
+    Card.tsx
+    Avatar.tsx
+    PillSelect.tsx
+    RadioCard.tsx
+    Banner.tsx
+  QuestionCard.tsx
+  ResponseCard.tsx
+  TrustGroupCard.tsx
+  NotificationCard.tsx
+  VisibilitySelector.tsx
+  CategoryFilter.tsx
+  NotificationBell.tsx
+  EmptyState.tsx
+  UtilityText.tsx             -- Reusable component for contextual helper text
+  WelcomeBanner.tsx
+/lib
+  supabase.ts
+  auth.ts
+  types.ts
+  notifications.ts            -- Create and send notifications
+  email.ts                    -- Email sending utility
+/hooks
+  useUser.ts
+  useQuestions.ts
+  useNotifications.ts
+  useTrustGroups.ts
+```
+
+---
+
+## SEED DATA FOR DEVELOPMENT
+
+### 5 test users:
+- Alex Chen — "CS senior, building things and figuring out what's next"
+- Maria Santos — "MBA year 1, career changer from engineering, 28 and counting"
+- Jordan Kim — "Psych junior, pre-med maybe, overthinking everything"
+- Sam Patel — "Engineering sophomore, quietly considering design"
+- Priya Sharma — "Class of 2025, now at an early-stage startup, still figuring it out"
+
+### 1 trust group:
+- "Career Brain Trust" — created by Alex
+  - Members: Alex (creator), Maria ("Brilliant at breaking down strategy for technical founders"), Priya ("She mentored me through career transition anxiety"), Jordan ("Thoughtful about big decisions and always shows up")
+
+### 3 seed questions:
+1. Alex (global, career): "Has anyone turned down a big tech offer to work on their own thing? What did the first 6 months look like?" + context about FAANG return offer vs side project
+2. Veiled (global, emotional): "I feel like I'm disappointing my parents by not wanting to be an engineer. Has anyone navigated family pressure about career choices?" + context about first-gen student, guilt
+3. Maria (trust group: Career Brain Trust, life): "I'm 28 and surrounded by 23-year-olds in my MBA cohort. Anyone else dealt with the age gap feeling?"
+
+### Seed responses:
+- Priya responds to Q1 with her experience turning down a Series B offer
+- Jordan responds to Q2 with experience navigating pre-med pressure from family
+- Alex responds to Q3 with perspective on being younger but relating to feeling out of place
+
+### Seed outcome:
+- Q1 is resolved: Alex turned down the offer, shares 2-week update, thanks Priya
+
+---
+
+## MVP SCOPE
+
+### Build First (Core Loop)
+1. Auth (Supabase magic link)
+2. Onboarding (identity + notification email + enter global feed)
+3. Global feed with category filters
+4. Question posting (all 3 visibility levels)
+5. Question detail page with responses
+6. Response posting (100-char minimum, two-field structure)
+7. Trust groups (create, invite, group feed)
+8. Outcome/close-the-loop flow
+9. Gratitude ("this helped" marking)
+10. Basic profile
+11. In-app notifications
+12. Email notifications
+13. Veiled question mechanics
+14. Welcome banner for new users
+15. Contextual utility text on all pages
+
+### Build Later (Post-MVP)
+- Trust group discovery / suggested groups
+- Search within platform
+- Mobile app (responsive web first)
+- Push notifications
+- Moderation tools (flag/report)
+- Admin dashboard
+- Trust group analytics (for group creators)
+- Profile enrichment (optional fields, avatar upload)
+- Outcome-based insights ("questions like yours often lead to...")
+
+---
+
+*Document version: 2.1*
+*Date: April 2026*
+*Changes from v2.0: Helpfulness ratings opened to all conversation participants (not just question asker). Ratings accumulate into profile-level helpfulness score with tiered badges. Suggested helpful people surfaced during trust group creation. Gratitude notes separated from helpfulness ratings. Email notifications for ratings batched daily to prevent spam.*
+*Ready for Claude Code implementation*
