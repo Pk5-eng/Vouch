@@ -192,13 +192,19 @@ export default function ProfilePage() {
                 <span>{outcomeCount} loops closed</span>
               </div>
 
-              {helpfulnessLevel && (
-                <div className="mt-3">
+              {/* Valued by score — always visible */}
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-sm font-medium text-teal-700">
+                  Valued by {helpfulness?.total_helpful_ratings || 0} {(helpfulness?.total_helpful_ratings || 0) === 1 ? 'person' : 'people'}
+                </span>
+                {helpfulnessLevel && (
                   <Badge variant="teal">{helpfulnessLevel}</Badge>
-                  <p className="text-xs text-warm-400 mt-1">
-                    Recognized as helpful by {helpfulness!.total_helpful_ratings} people across {helpfulness!.questions_helped_on} conversations
-                  </p>
-                </div>
+                )}
+              </div>
+              {helpfulness && helpfulness.total_helpful_ratings > 0 && (
+                <p className="text-xs text-warm-400 mt-1">
+                  Across {helpfulness.questions_helped_on} {helpfulness.questions_helped_on === 1 ? 'conversation' : 'conversations'}
+                </p>
               )}
 
               {isOwnProfile && (
