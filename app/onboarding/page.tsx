@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Textarea from '@/components/ui/Textarea';
 import Card from '@/components/ui/Card';
 
-export default function OnboardingPage() {
+function OnboardingForm() {
   const [displayName, setDisplayName] = useState('');
   const [notificationEmail, setNotificationEmail] = useState('');
   const [bio, setBio] = useState('');
@@ -16,6 +16,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   useEffect(() => {
@@ -55,9 +56,63 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push('/feed');
+    const next = searchParams.get('next');
+    router.push(next || '/feed');
   };
 
+  return (
+    <Card className="p-8">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Input
+          label="Your name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Alex Chen"
+          required
+          subtext="We encourage using your real name — it builds trust and helps others know who they're hearing from."
+        />
+
+        <div className="space-y-2">
+          <Input
+            label="Notification email"
+            type="email"
+            value={notificationEmail}
+            onChange={(e) => setNotificationEmail(e.target.value)}
+            required
+            subtext="We'll send you a note when someone responds to your question or finds your experience helpful. Nothing else."
+          />
+          <label className="flex items-center gap-2 text-sm text-warm-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={notificationsEnabled}
+              onChange={(e) => setNotificationsEnabled(e.target.checked)}
+              className="rounded border-warm-300 text-teal-600 focus:ring-teal-500"
+            />
+            Send me notifications
+          </label>
+        </div>
+
+        <Textarea
+          label="A bit about you"
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
+          placeholder="e.g. Product designer, career changer, figuring things out one question at a time"
+          maxChars={160}
+          charCount={bio.length}
+          maxLength={160}
+        />
+
+        {error && <p className="text-sm text-red-500">{error}</p>}
+
+        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+          {loading ? 'Setting up...' : 'Enter Vouch'}
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+export default function OnboardingPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-warm-50 px-4 py-12">
       <div className="w-full max-w-lg">
@@ -71,54 +126,9 @@ export default function OnboardingPage() {
           </p>
         </div>
 
-        <Card className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <Input
-              label="Your name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Alex Chen"
-              required
-              subtext="We encourage using your real name — it builds trust and helps others know who they're hearing from."
-            />
-
-            <div className="space-y-2">
-              <Input
-                label="Notification email"
-                type="email"
-                value={notificationEmail}
-                onChange={(e) => setNotificationEmail(e.target.value)}
-                required
-                subtext="We'll send you a note when someone responds to your question or finds your experience helpful. Nothing else."
-              />
-              <label className="flex items-center gap-2 text-sm text-warm-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={notificationsEnabled}
-                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                  className="rounded border-warm-300 text-teal-600 focus:ring-teal-500"
-                />
-                Send me notifications
-              </label>
-            </div>
-
-            <Textarea
-              label="A bit about you"
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="e.g. Product designer, career changer, figuring things out one question at a time"
-              maxChars={160}
-              charCount={bio.length}
-              maxLength={160}
-            />
-
-            {error && <p className="text-sm text-red-500">{error}</p>}
-
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? 'Setting up...' : 'Enter Vouch'}
-            </Button>
-          </form>
-        </Card>
+        <Suspense fallback={<div className="text-center py-8 text-warm-400">Loading...</div>}>
+          <OnboardingForm />
+        </Suspense>
       </div>
     </div>
   );

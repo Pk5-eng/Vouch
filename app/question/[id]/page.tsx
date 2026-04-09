@@ -38,6 +38,7 @@ export default function QuestionDetailPage() {
   const [takeaway, setTakeaway] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [revealedTo, setRevealedTo] = useState<Set<string>>(new Set());
   const supabase = createClient();
 
   const fetchData = useCallback(async () => {
@@ -55,7 +56,13 @@ export default function QuestionDetailPage() {
       .eq('id', questionId)
       .single();
 
-    if (q) setQuestion(q as unknown as Question);
+    if (q) {
+      // Strip author data from veiled questions for privacy
+      if (q.is_veiled && user?.id !== q.author_id) {
+        q.author = undefined;
+      }
+      setQuestion(q as unknown as Question);
+    }
 
     // Fetch responses with authors
     const { data: resps } = await supabase
@@ -118,6 +125,12 @@ export default function QuestionDetailPage() {
       return;
     }
 
+    // Update question's updated_at to bump it in the feed (activity-weighted recency)
+    await supabase
+      .from('questions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', questionId);
+
     // Notify question author
     if (question && question.author_id !== user.id) {
       const { data: profile } = await supabase
@@ -139,6 +152,30 @@ export default function QuestionDetailPage() {
     setTakeaway('');
     setSubmitting(false);
     fetchData();
+  };
+
+  const handleReveal = async (responderId: string) => {
+    if (revealedTo.has(responderId)) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !question) return;
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', user.id)
+      .single();
+
+    // Notify the responder that the asker revealed their identity
+    await supabase.from('notifications').insert({
+      user_id: responderId,
+      type: 'vouch_received',
+      title: `${profile?.display_name || 'Someone'} revealed themselves to you`,
+      body: `They asked: "${question.title.slice(0, 80)}"`,
+      link: `/question/${questionId}`,
+    });
+
+    setRevealedTo((prev) => new Set(prev).add(responderId));
   };
 
   if (!question) {
@@ -226,6 +263,8 @@ export default function QuestionDetailPage() {
                 currentUserId={currentUserId}
                 questionAuthorId={question.author_id}
                 isVeiledQuestion={isVeiled}
+                onReveal={handleReveal}
+                revealedTo={revealedTo}
               />
             ))}
           </div>

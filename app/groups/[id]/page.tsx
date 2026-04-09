@@ -21,9 +21,12 @@ export default function GroupDetailPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [showMembers, setShowMembers] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isMember, setIsMember] = useState(false);
   const supabase = createClient();
 
   const fetchData = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+
     // Fetch group
     const { data: g } = await supabase
       .from('trust_groups')
@@ -39,7 +42,14 @@ export default function GroupDetailPage() {
       .select(`*, users(*)`)
       .eq('group_id', groupId);
 
-    if (m) setMembers(m as TrustGroupMember[]);
+    if (m) {
+      setMembers(m as TrustGroupMember[]);
+      // Check if current user is a member
+      if (user) {
+        const memberCheck = m.some((member) => member.user_id === user.id);
+        setIsMember(memberCheck);
+      }
+    }
 
     // Fetch group questions
     const { data: qs } = await supabase
@@ -72,6 +82,17 @@ export default function GroupDetailPage() {
 
   if (loading || !group) {
     return <AppShell><div className="text-center py-12 text-warm-400">Loading...</div></AppShell>;
+  }
+
+  if (!isMember) {
+    return (
+      <AppShell>
+        <div className="max-w-2xl mx-auto text-center py-12">
+          <h1 className="text-xl font-bold text-warm-900 mb-2">Private Group</h1>
+          <p className="text-warm-500">You need to be a member to view this group.</p>
+        </div>
+      </AppShell>
+    );
   }
 
   return (

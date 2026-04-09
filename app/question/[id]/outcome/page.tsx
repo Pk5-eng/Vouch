@@ -71,16 +71,14 @@ export default function OutcomePage() {
       return;
     }
 
-    // Create gratitude notes
+    // Create gratitude notes for all thanked responders (even without a note)
     for (const responseId of thankedIds) {
-      const note = notes[responseId]?.trim();
-      if (note) {
-        await supabase.from('gratitude_notes').insert({
-          response_id: responseId,
-          from_user_id: user.id,
-          note,
-        });
-      }
+      const note = notes[responseId]?.trim() || '';
+      await supabase.from('gratitude_notes').insert({
+        response_id: responseId,
+        from_user_id: user.id,
+        note,
+      });
     }
 
     // Notify responders

@@ -25,6 +25,7 @@ interface ResponseCardProps {
   questionAuthorId: string;
   isVeiledQuestion?: boolean;
   onReveal?: (responderId: string) => void;
+  revealedTo?: Set<string>;
 }
 
 export default function ResponseCard({
@@ -33,6 +34,7 @@ export default function ResponseCard({
   questionAuthorId,
   isVeiledQuestion,
   onReveal,
+  revealedTo,
 }: ResponseCardProps) {
   const [hasRated, setHasRated] = useState(response.user_has_rated || false);
   const [isRating, setIsRating] = useState(false);
@@ -117,12 +119,18 @@ export default function ResponseCard({
       <div className="mt-4 flex items-center justify-between">
         <div>
           {isVeiledQuestion && isQuestionAuthor && (
-            <button
-              onClick={() => onReveal?.(response.author_id)}
-              className="text-xs text-teal-600 hover:text-teal-700 font-medium"
-            >
-              Reveal yourself to {response.author?.display_name}
-            </button>
+            revealedTo?.has(response.author_id) ? (
+              <span className="text-xs text-green-600 font-medium">
+                Identity revealed to {response.author?.display_name}
+              </span>
+            ) : (
+              <button
+                onClick={() => onReveal?.(response.author_id)}
+                className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+              >
+                Reveal yourself to {response.author?.display_name}
+              </button>
+            )
           )}
         </div>
 

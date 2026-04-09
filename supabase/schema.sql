@@ -113,6 +113,7 @@ CREATE INDEX idx_questions_category ON questions(category);
 CREATE INDEX idx_questions_visibility ON questions(visibility);
 CREATE INDEX idx_questions_trust_group ON questions(trust_group_id);
 CREATE INDEX idx_questions_created_at ON questions(created_at DESC);
+CREATE INDEX idx_questions_updated_at ON questions(updated_at DESC);
 CREATE INDEX idx_responses_question ON responses(question_id);
 CREATE INDEX idx_responses_author ON responses(author_id);
 CREATE INDEX idx_helpfulness_response ON helpfulness_ratings(response_id);

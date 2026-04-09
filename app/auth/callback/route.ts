@@ -21,7 +21,9 @@ export async function GET(request: Request) {
           .single();
 
         if (!profile) {
-          return NextResponse.redirect(`${origin}/onboarding`);
+          // Preserve the next param through onboarding
+          const redirectParam = next !== '/feed' ? `?next=${encodeURIComponent(next)}` : '';
+          return NextResponse.redirect(`${origin}/onboarding${redirectParam}`);
         }
       }
       return NextResponse.redirect(`${origin}${next}`);

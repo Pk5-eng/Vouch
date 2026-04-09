@@ -31,7 +31,19 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // Allow auth routes always
+  // Allow auth callback always
+  if (path.startsWith('/auth/callback')) {
+    return supabaseResponse;
+  }
+
+  // If logged in and visiting auth pages, redirect to feed
+  if (user && path.startsWith('/auth')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/feed';
+    return NextResponse.redirect(url);
+  }
+
+  // Allow auth routes for unauthenticated users
   if (path.startsWith('/auth')) {
     return supabaseResponse;
   }
@@ -40,6 +52,10 @@ export async function middleware(request: NextRequest) {
   if (!user && path !== '/') {
     const url = request.nextUrl.clone();
     url.pathname = '/auth/login';
+    // Preserve the intended destination so we can redirect after login
+    if (path !== '/feed') {
+      url.searchParams.set('next', path);
+    }
     return NextResponse.redirect(url);
   }
 
@@ -54,7 +70,10 @@ export async function middleware(request: NextRequest) {
     // Not onboarded yet — redirect to onboarding (unless already there)
     if (!profile && path !== '/onboarding') {
       const url = request.nextUrl.clone();
+      // Preserve the next param through onboarding
+      const next = request.nextUrl.searchParams.get('next') || (path !== '/' && path !== '/feed' ? path : null);
       url.pathname = '/onboarding';
+      if (next) url.searchParams.set('next', next);
       return NextResponse.redirect(url);
     }
 

@@ -23,8 +23,10 @@ export default function ProfilePage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [responseCount, setResponseCount] = useState(0);
   const [outcomeCount, setOutcomeCount] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
   const [vouches, setVouches] = useState<{ context: string; by: string; group: string }[]>([]);
   const [userGroups, setUserGroups] = useState<TrustGroup[]>([]);
+  const [showGroupPicker, setShowGroupPicker] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -71,6 +73,14 @@ export default function ProfilePage() {
           })) as Question[]
         );
       }
+
+      // Proper question count (not limited to 10)
+      const { count: qc } = await supabase
+        .from('questions')
+        .select('*', { count: 'exact', head: true })
+        .eq('author_id', profileId)
+        .eq('is_veiled', false);
+      setQuestionCount(qc || 0);
 
       // Response count
       const { count: rc } = await supabase
@@ -175,7 +185,7 @@ export default function ProfilePage() {
               </p>
 
               <div className="flex gap-4 mt-3 text-sm text-warm-500">
-                <span>{questions.length} questions asked</span>
+                <span>{questionCount} questions asked</span>
                 <span>&middot;</span>
                 <span>{responseCount} experiences shared</span>
                 <span>&middot;</span>
@@ -201,11 +211,36 @@ export default function ProfilePage() {
 
               {!isOwnProfile && userGroups.length > 0 && (
                 <div className="mt-4">
-                  <Link href={`/groups/${userGroups[0].id}/invite`}>
-                    <Button variant="secondary" size="sm">
-                      Invite {profile.display_name} to a group
-                    </Button>
-                  </Link>
+                  {userGroups.length === 1 ? (
+                    <Link href={`/groups/${userGroups[0].id}/invite`}>
+                      <Button variant="secondary" size="sm">
+                        Invite to {userGroups[0].name}
+                      </Button>
+                    </Link>
+                  ) : (
+                    <div className="relative">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setShowGroupPicker(!showGroupPicker)}
+                      >
+                        Invite {profile.display_name} to a group
+                      </Button>
+                      {showGroupPicker && (
+                        <div className="absolute top-full mt-1 left-0 bg-white border border-warm-200 rounded-lg shadow-lg z-10 py-1 min-w-48">
+                          {userGroups.map((g) => (
+                            <Link
+                              key={g.id}
+                              href={`/groups/${g.id}/invite`}
+                              className="block px-4 py-2 text-sm text-warm-700 hover:bg-warm-50 hover:text-teal-600"
+                            >
+                              {g.name}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

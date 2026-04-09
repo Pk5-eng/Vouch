@@ -35,7 +35,7 @@ export default function FeedPage() {
         responses(id)
       `)
       .in('visibility', ['global', 'veiled'])
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
       .range(pageNum * PAGE_SIZE, (pageNum + 1) * PAGE_SIZE - 1);
 
     if (cat !== 'all') {
@@ -44,11 +44,17 @@ export default function FeedPage() {
 
     const { data } = await query;
 
-    const mapped = (data || []).map((q) => ({
-      ...q,
-      response_count: q.responses?.length || 0,
-      responses: undefined,
-    })) as Question[];
+    const mapped = (data || []).map((q) => {
+      const isVeiled = q.is_veiled;
+      return {
+        ...q,
+        response_count: q.responses?.length || 0,
+        responses: undefined,
+        // Strip author data from veiled questions for privacy
+        author: isVeiled ? undefined : q.author,
+        author_id: isVeiled ? '' : q.author_id,
+      };
+    }) as Question[];
 
     if (append) {
       setQuestions((prev) => [...prev, ...mapped]);

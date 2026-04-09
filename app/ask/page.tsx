@@ -98,7 +98,7 @@ export default function AskPage() {
 
         const notifications = members.map((m) => ({
           user_id: m.user_id,
-          type: 'new_response' as const,
+          type: 'group_question' as const,
           title: `New question in ${group?.name || 'your group'}`,
           body: `${profile?.display_name || 'Someone'} asked: "${title.trim().slice(0, 80)}"`,
           link: `/question/${data.id}`,
@@ -122,14 +122,17 @@ export default function AskPage() {
         </UtilityText>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Input
-            label="What are you trying to figure out?"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Has anyone switched from engineering to product management in their third year?"
-            maxLength={200}
-            required
-          />
+          <div>
+            <Input
+              label="What are you trying to figure out?"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Has anyone switched from engineering to product management in their third year?"
+              maxLength={200}
+              required
+            />
+            <p className="text-xs text-warm-400 text-right mt-1">{title.length}/200</p>
+          </div>
 
           <Textarea
             label="What context would help someone respond?"

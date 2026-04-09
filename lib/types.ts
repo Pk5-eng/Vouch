@@ -2,7 +2,7 @@ export type Category = 'career' | 'academics' | 'life' | 'emotional' | 'logistic
 export type Visibility = 'global' | 'trust_group' | 'veiled';
 export type QuestionStatus = 'open' | 'resolved';
 export type GroupRole = 'creator' | 'member';
-export type NotificationType = 'new_response' | 'marked_helpful' | 'outcome_posted' | 'group_invite' | 'vouch_received';
+export type NotificationType = 'new_response' | 'marked_helpful' | 'outcome_posted' | 'group_invite' | 'group_question' | 'vouch_received';
 
 export const CATEGORIES: { value: Category; label: string }[] = [
   { value: 'career', label: 'Career' },
