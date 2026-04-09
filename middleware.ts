@@ -25,11 +25,28 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // IMPORTANT: call getUser() to refresh the session token.
+  // The refreshed cookies are stored on supabaseResponse.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+
+  // Helper: create a redirect that preserves Supabase session cookies
+  function redirectTo(pathname: string, searchParams?: Record<string, string>) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    if (searchParams) {
+      Object.entries(searchParams).forEach(([k, v]) => url.searchParams.set(k, v));
+    }
+    const redirectResponse = NextResponse.redirect(url);
+    // Copy all Supabase session cookies to the redirect response
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return redirectResponse;
+  }
 
   // Allow auth callback always
   if (path.startsWith('/auth/callback')) {
@@ -38,9 +55,7 @@ export async function middleware(request: NextRequest) {
 
   // If logged in and visiting auth pages, redirect to feed
   if (user && path.startsWith('/auth')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/feed';
-    return NextResponse.redirect(url);
+    return redirectTo('/feed');
   }
 
   // Allow auth routes for unauthenticated users
@@ -50,13 +65,9 @@ export async function middleware(request: NextRequest) {
 
   // If not logged in and trying to access protected routes, redirect to login
   if (!user && path !== '/') {
-    const url = request.nextUrl.clone();
-    url.pathname = '/auth/login';
-    // Preserve the intended destination so we can redirect after login
-    if (path !== '/feed') {
-      url.searchParams.set('next', path);
-    }
-    return NextResponse.redirect(url);
+    const params: Record<string, string> = {};
+    if (path !== '/feed') params.next = path;
+    return redirectTo('/auth/login', params);
   }
 
   // If logged in, check if onboarded
@@ -69,26 +80,20 @@ export async function middleware(request: NextRequest) {
 
     // Not onboarded yet — redirect to onboarding (unless already there)
     if (!profile && path !== '/onboarding') {
-      const url = request.nextUrl.clone();
-      // Preserve the next param through onboarding
       const next = request.nextUrl.searchParams.get('next') || (path !== '/' && path !== '/feed' ? path : null);
-      url.pathname = '/onboarding';
-      if (next) url.searchParams.set('next', next);
-      return NextResponse.redirect(url);
+      const params: Record<string, string> = {};
+      if (next) params.next = next;
+      return redirectTo('/onboarding', params);
     }
 
     // Already onboarded but visiting onboarding — redirect to feed
     if (profile && path === '/onboarding') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/feed';
-      return NextResponse.redirect(url);
+      return redirectTo('/feed');
     }
 
     // Logged in and at root — redirect to feed
     if (profile && path === '/') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/feed';
-      return NextResponse.redirect(url);
+      return redirectTo('/feed');
     }
   }
 
