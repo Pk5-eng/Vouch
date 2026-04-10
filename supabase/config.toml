@@ -1,0 +1,17 @@
+[project]
+id = ""
+
+[auth]
+# Increase email rate limit from the default of 2 per hour to 10 per hour.
+# This prevents "email rate limit exceeded" errors during normal usage.
+site_url = "http://localhost:3000"
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[auth.rate_limit]
+# Allow up to 10 magic-link / OTP emails per hour per email address (default: 2)
+email_sent = 10

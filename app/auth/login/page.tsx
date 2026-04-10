@@ -1,23 +1,33 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card from '@/components/ui/Card';
 
+const COOLDOWN_SECONDS = 60;
+
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cooldown, setCooldown] = useState(0);
 
   const searchParams = useSearchParams();
   const supabase = createClient();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
+
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    if (cooldown > 0) return;
     setLoading(true);
     setError('');
 
@@ -34,12 +44,18 @@ function LoginForm() {
     });
 
     if (error) {
-      setError(error.message);
+      if (error.message.toLowerCase().includes('rate limit')) {
+        setError('Too many sign-in attempts. Please wait a minute and try again.');
+        setCooldown(COOLDOWN_SECONDS);
+      } else {
+        setError(error.message);
+      }
     } else {
       setSent(true);
+      setCooldown(COOLDOWN_SECONDS);
     }
     setLoading(false);
-  };
+  }, [cooldown, email, searchParams, supabase.auth]);
 
   return (
     <Card className="p-8">
@@ -50,6 +66,14 @@ function LoginForm() {
           <p className="text-warm-500 text-sm">
             We sent a magic link to <strong>{email}</strong>. Click the link to sign in.
           </p>
+          <button
+            type="button"
+            className="mt-4 text-sm text-warm-400 hover:text-warm-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={cooldown > 0}
+            onClick={() => { setSent(false); }}
+          >
+            {cooldown > 0 ? `Resend available in ${cooldown}s` : 'Didn\u2019t get it? Resend'}
+          </button>
         </div>
       ) : (
         <form onSubmit={handleLogin} className="space-y-5">
@@ -62,8 +86,8 @@ function LoginForm() {
             required
             error={error}
           />
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? 'Sending...' : 'Continue with email'}
+          <Button type="submit" className="w-full" size="lg" disabled={loading || cooldown > 0}>
+            {loading ? 'Sending...' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Continue with email'}
           </Button>
           <p className="text-xs text-warm-400 text-center">
             We&apos;ll send you a magic link — no password needed.
