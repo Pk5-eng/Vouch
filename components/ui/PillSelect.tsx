@@ -20,9 +20,9 @@ export default function PillSelect({ options, value, onChange, className = '' }:
           key={option.value}
           type="button"
           onClick={() => onChange(option.value)}
-          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all pill-hover ${
             value === option.value
-              ? 'bg-teal-600 text-white'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
               : 'bg-warm-100 text-warm-600 hover:bg-warm-200'
           }`}
         >

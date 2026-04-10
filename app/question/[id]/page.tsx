@@ -196,14 +196,14 @@ export default function QuestionDetailPage() {
             />
             <div className="text-sm text-warm-500">
               {!isVeiled ? (
-                <Link href={`/profile/${question.author_id}`} className="font-medium text-warm-700 hover:text-teal-600">
+                <Link href={`/profile/${question.author_id}`} className="font-medium text-warm-700 hover:text-indigo-600">
                   {authorName}
                 </Link>
               ) : (
                 <span className="font-medium text-warm-700">{authorName}</span>
               )}
               {question.trust_group && (
-                <span className="text-teal-600"> &middot; {question.trust_group.name}</span>
+                <span className="text-indigo-600"> &middot; {question.trust_group.name}</span>
               )}
               <span> &middot; {timeAgo(question.created_at)}</span>
             </div>

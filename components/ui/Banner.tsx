@@ -14,7 +14,7 @@ export default function Banner({ children, dismissible = true, onDismiss }: Bann
   if (!visible) return null;
 
   return (
-    <div className="bg-teal-50 border border-teal-100 rounded-xl p-5 relative">
+    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-5 relative">
       {dismissible && (
         <button
           onClick={() => {

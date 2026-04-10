@@ -152,11 +152,11 @@ export default function FeedPage() {
             )}
           </div>
 
-          {/* Sidebar — Trust Groups */}
+          {/* Sidebar — Huddles */}
           <aside className="w-full lg:w-72 shrink-0">
             <Card className="sticky top-20">
               <h3 className="font-semibold text-warm-800 mb-2 flex items-center gap-2">
-                <span>&#128274;</span> Trust Groups
+                <span className="icon-hover inline-block">&#129309;</span> Huddles
               </h3>
               {userGroups.length > 0 ? (
                 <>
@@ -165,14 +165,14 @@ export default function FeedPage() {
                   </p>
                   <Link href="/groups/create">
                     <Button variant="secondary" size="sm" className="w-full mb-4">
-                      Create a Trust Group
+                      Create a Huddle
                     </Button>
                   </Link>
                   <div className="space-y-2">
                     <p className="text-xs font-medium text-warm-500 uppercase tracking-wider">Your groups:</p>
                     {userGroups.map((g) => (
                       <Link key={g.id} href={`/groups/${g.id}`} className="block">
-                        <div className="text-sm text-warm-700 hover:text-teal-600 transition-colors">
+                        <div className="text-sm text-warm-700 hover:text-indigo-600 transition-colors">
                           &middot; {g.name} ({g.member_count} members)
                         </div>
                       </Link>
@@ -182,12 +182,12 @@ export default function FeedPage() {
               ) : (
                 <>
                   <p className="text-sm text-warm-400 mb-4">
-                    Some questions deserve a smaller audience. Create a trust group — invite people whose
+                    Some questions deserve a smaller audience. Create a huddle — invite people whose
                     experience you value — and ask the hard questions with people you trust.
                   </p>
                   <Link href="/groups/create">
                     <Button variant="secondary" size="sm" className="w-full">
-                      Create Your First Trust Group
+                      Create Your First Huddle
                     </Button>
                   </Link>
                 </>

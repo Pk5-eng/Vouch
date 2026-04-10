@@ -52,7 +52,7 @@ export default function AskPage() {
 
     if (!title.trim()) { setError('Please enter your question.'); return; }
     if (!category) { setError('Please select a category.'); return; }
-    if (visibility === 'trust_group' && !groupId) { setError('Please select a trust group.'); return; }
+    if (visibility === 'trust_group' && !groupId) { setError('Please select a huddle.'); return; }
 
     setLoading(true);
 
@@ -75,7 +75,7 @@ export default function AskPage() {
       return;
     }
 
-    // Notify trust group members if trust_group visibility
+    // Notify huddle members if trust_group visibility
     if (visibility === 'trust_group' && groupId) {
       const { data: members } = await supabase
         .from('trust_group_members')

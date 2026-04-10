@@ -125,7 +125,7 @@ export default function GroupDetailPage() {
         <div>
           <button
             onClick={() => setShowMembers(!showMembers)}
-            className="text-sm font-medium text-teal-600 hover:text-teal-700 flex items-center gap-1"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
           >
             {showMembers ? 'Hide' : 'Show'} members ({members.length})
             <span className="text-xs">{showMembers ? '▲' : '▼'}</span>
@@ -142,12 +142,12 @@ export default function GroupDetailPage() {
                   <div>
                     <Link
                       href={`/profile/${m.user_id}`}
-                      className="text-sm font-medium text-warm-800 hover:text-teal-600"
+                      className="text-sm font-medium text-warm-800 hover:text-indigo-600"
                     >
                       {(m.users as any)?.display_name || 'User'}
                     </Link>
                     {m.role === 'creator' && (
-                      <span className="text-xs text-teal-600 ml-2">Creator</span>
+                      <span className="text-xs text-indigo-600 ml-2">Creator</span>
                     )}
                     {m.vouch_context && (
                       <p className="text-xs text-warm-400 mt-0.5 italic">&ldquo;{m.vouch_context}&rdquo;</p>

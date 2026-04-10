@@ -114,7 +114,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={notificationsEnabled}
               onChange={(e) => setNotificationsEnabled(e.target.checked)}
-              className="rounded border-warm-300 text-teal-600 focus:ring-teal-500"
+              className="rounded border-warm-300 text-indigo-600 focus:ring-indigo-500"
             />
             Send me email notifications
           </label>

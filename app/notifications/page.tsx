@@ -64,14 +64,14 @@ export default function NotificationsPage() {
           {hasUnread && (
             <button
               onClick={markAllRead}
-              className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
             >
               Mark all read
             </button>
           )}
         </div>
         <UtilityText>
-          You&apos;ll only hear from us when something real happens — a response to your question, someone finding your experience helpful, or an invite to a trust group.
+          You&apos;ll only hear from us when something real happens — a response to your question, someone finding your experience helpful, or an invite to a huddle.
         </UtilityText>
 
         {loading ? (

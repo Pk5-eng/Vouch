@@ -21,7 +21,7 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
         <textarea
           ref={ref}
-          className={`w-full rounded-lg border border-warm-200 bg-white px-3.5 py-2.5 text-warm-900 placeholder:text-warm-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 transition-colors resize-y min-h-[100px] ${error ? 'border-red-400' : ''} ${className}`}
+          className={`w-full rounded-lg border border-warm-200 bg-white px-3.5 py-2.5 text-warm-900 placeholder:text-warm-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors resize-y min-h-[100px] ${error ? 'border-red-400' : ''} ${className}`}
           {...props}
         />
         <div className="flex justify-between">
