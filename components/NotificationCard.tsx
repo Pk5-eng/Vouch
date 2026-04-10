@@ -29,13 +29,13 @@ export default function NotificationCard({ notification, onMarkRead }: Notificat
       className={`rounded-xl border p-4 transition-all ${
         notification.is_read
           ? 'bg-white border-warm-100'
-          : 'bg-teal-50/50 border-teal-100'
+          : 'bg-indigo-50/50 border-indigo-100'
       }`}
       onClick={() => !notification.is_read && onMarkRead?.(notification.id)}
     >
       <div className="flex items-start gap-3">
         {!notification.is_read && (
-          <span className="w-2 h-2 rounded-full bg-teal-500 mt-2 shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-indigo-500 mt-2 shrink-0" />
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm text-warm-800 font-medium">{notification.title}</p>

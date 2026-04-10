@@ -173,9 +173,9 @@ export default function CreateGroupPage() {
   return (
     <AppShell>
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold text-warm-900 mb-2">Create a Trust Group</h1>
+        <h1 className="text-2xl font-bold text-warm-900 mb-2">Create a Huddle</h1>
         <UtilityText className="mb-6">
-          A trust group is a small circle of people whose experience and judgment you value. Ask questions here that you wouldn&apos;t ask everyone.
+          A huddle is a small circle of people whose experience and judgment you value. Ask questions here that you wouldn&apos;t ask everyone.
         </UtilityText>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -253,7 +253,7 @@ export default function CreateGroupPage() {
                       onChange={(e) => updateContext(inv.user.id, e.target.value)}
                       placeholder={`Why are you adding ${inv.user.display_name}? (optional)`}
                       maxLength={200}
-                      className="w-full text-sm rounded-lg border border-warm-200 bg-white px-3 py-2 text-warm-900 placeholder:text-warm-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      className="w-full text-sm rounded-lg border border-warm-200 bg-white px-3 py-2 text-warm-900 placeholder:text-warm-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                 ))}
@@ -280,7 +280,7 @@ export default function CreateGroupPage() {
                       <button
                         type="button"
                         onClick={() => addInvitee(user)}
-                        className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+                        className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
                       >
                         + Invite
                       </button>

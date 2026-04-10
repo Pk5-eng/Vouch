@@ -14,13 +14,13 @@ export default function RadioCard({ selected, onClick, icon, title, description,
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 min-w-[140px] p-4 rounded-xl border-2 text-left transition-all ${
+      className={`flex-1 min-w-[140px] p-4 rounded-xl border-2 text-left transition-all hover-lift ${
         selected
-          ? 'border-teal-500 bg-teal-50'
+          ? 'border-indigo-500 bg-indigo-50 shadow-sm shadow-indigo-500/10'
           : 'border-warm-200 bg-white hover:border-warm-300'
       }`}
     >
-      <div className="text-2xl mb-2">{icon}</div>
+      <div className="text-2xl mb-2 icon-hover inline-block">{icon}</div>
       <div className="font-medium text-warm-900 text-sm">
         {title}
         {isDefault && (

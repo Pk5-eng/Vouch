@@ -36,8 +36,8 @@ export default function VisibilitySelector({
           selected={value === 'trust_group'}
           onClick={() => onChange('trust_group')}
           icon="&#128101;"
-          title="Trust Group"
-          description="Only members of a trust group you choose. Your name visible to them."
+          title="Huddle"
+          description="Only members of a huddle you choose. Your name visible to them."
         />
         <RadioCard
           selected={value === 'veiled'}
@@ -54,7 +54,7 @@ export default function VisibilitySelector({
             <select
               value={selectedGroupId || ''}
               onChange={(e) => onGroupChange(e.target.value)}
-              className="w-full rounded-lg border border-warm-200 bg-white px-3.5 py-2.5 text-warm-900 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full rounded-lg border border-warm-200 bg-white px-3.5 py-2.5 text-warm-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">Choose a group</option>
               {userGroups.map((group) => (
@@ -65,8 +65,8 @@ export default function VisibilitySelector({
             </select>
           ) : (
             <p className="text-sm text-warm-500">
-              You haven&apos;t created a trust group yet.{' '}
-              <a href="/groups/create" className="text-teal-600 hover:text-teal-700 font-medium">
+              You haven&apos;t created a huddle yet.{' '}
+              <a href="/groups/create" className="text-indigo-600 hover:text-indigo-700 font-medium">
                 Create one now
               </a>
             </p>

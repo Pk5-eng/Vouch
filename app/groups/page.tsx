@@ -71,24 +71,24 @@ export default function GroupsPage() {
     <AppShell>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-warm-900">Your Trust Groups</h1>
+          <h1 className="text-2xl font-bold text-warm-900">Your Huddles</h1>
           <Link href="/groups/create">
             <Button>Create a group</Button>
           </Link>
         </div>
         <UtilityText>
-          Trust groups are small circles of people whose experience and judgment you value. Ask the hard questions here.
+          Huddles are small circles of people whose experience and judgment you value. Ask the hard questions here.
         </UtilityText>
 
         {loading ? (
           <div className="text-center py-12 text-warm-400">Loading...</div>
         ) : groups.length === 0 ? (
           <EmptyState
-            title="No trust groups yet"
-            description="Create a trust group to ask questions in a smaller, trusted setting."
+            title="No huddles yet"
+            description="Create a huddle to ask questions in a smaller, trusted setting."
             action={
               <Link href="/groups/create">
-                <Button>Create Your First Trust Group</Button>
+                <Button>Create Your First Huddle</Button>
               </Link>
             }
           />

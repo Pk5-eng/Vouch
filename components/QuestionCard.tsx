@@ -28,7 +28,7 @@ export default function QuestionCard({ question }: QuestionCardProps) {
 
   return (
     <Link href={`/question/${question.id}`}>
-      <div className="bg-white rounded-xl border border-warm-100 p-5 hover:border-warm-200 hover:shadow-sm transition-all cursor-pointer">
+      <div className="bg-white rounded-xl border border-warm-100 p-5 hover-lift cursor-pointer">
         <div className="flex items-center gap-3 mb-3">
           <Avatar
             name={authorName}
@@ -41,7 +41,7 @@ export default function QuestionCard({ question }: QuestionCardProps) {
             {contextLabel && (
               <>
                 <span>&middot;</span>
-                <span className="truncate text-teal-600">{contextLabel}</span>
+                <span className="truncate text-indigo-600">{contextLabel}</span>
               </>
             )}
             <span>&middot;</span>

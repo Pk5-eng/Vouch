@@ -13,21 +13,21 @@ export default function Avatar({ name, url, size = 'md', veiled = false }: Avata
   };
 
   const initial = veiled ? '?' : name.charAt(0).toUpperCase();
-  const bgColor = veiled ? 'bg-warm-300' : 'bg-teal-100 text-teal-700';
+  const bgColor = veiled ? 'bg-warm-300' : 'bg-indigo-100 text-indigo-700';
 
   if (url && !veiled) {
     return (
       <img
         src={url}
         alt={name}
-        className={`${sizes[size]} rounded-full object-cover`}
+        className={`${sizes[size]} rounded-full object-cover ring-2 ring-indigo-100 transition-transform hover:scale-105`}
       />
     );
   }
 
   return (
     <div
-      className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center font-semibold shrink-0`}
+      className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center font-semibold shrink-0 transition-transform hover:scale-105`}
     >
       {initial}
     </div>

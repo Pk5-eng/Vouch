@@ -13,7 +13,7 @@ export default async function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-warm-50 px-4">
       <div className="max-w-xl text-center">
-        <h1 className="text-4xl md:text-5xl font-bold text-warm-900 mb-4">Vouch</h1>
+        <h1 className="text-4xl md:text-5xl font-bold logo-gradient mb-4">Vouch</h1>
         <p className="text-xl text-warm-600 leading-relaxed mb-2">
           In a world with a billion opinions,<br />filter the ones that matter.
         </p>
@@ -23,7 +23,7 @@ export default async function LandingPage() {
         </p>
         <Link
           href="/auth/login"
-          className="inline-flex items-center justify-center px-8 py-3 bg-teal-600 text-white font-medium rounded-lg hover:bg-teal-700 transition-colors text-lg"
+          className="inline-flex items-center justify-center px-8 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-500/25 active:scale-[0.97] transition-colors text-lg"
         >
           Get started
         </Link>

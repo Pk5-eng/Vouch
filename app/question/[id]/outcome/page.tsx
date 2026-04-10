@@ -143,7 +143,7 @@ export default function OutcomePage() {
                       type="checkbox"
                       checked={thankedIds.has(r.id)}
                       onChange={() => toggleThank(r.id)}
-                      className="rounded border-warm-300 text-teal-600 focus:ring-teal-500"
+                      className="rounded border-warm-300 text-indigo-600 focus:ring-indigo-500"
                     />
                     <span className="text-sm font-medium text-warm-800">
                       {r.author?.display_name || 'Anonymous'}
@@ -156,7 +156,7 @@ export default function OutcomePage() {
                       onChange={(e) => setNotes({ ...notes, [r.id]: e.target.value })}
                       placeholder="Optional private thank-you note..."
                       maxLength={200}
-                      className="w-full text-sm rounded-lg border border-warm-200 bg-white px-3 py-2 text-warm-900 placeholder:text-warm-400 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                      className="w-full text-sm rounded-lg border border-warm-200 bg-white px-3 py-2 text-warm-900 placeholder:text-warm-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   )}
                 </div>

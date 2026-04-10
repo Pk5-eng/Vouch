@@ -126,7 +126,7 @@ export default function ResponseCard({
             ) : (
               <button
                 onClick={() => onReveal?.(response.author_id)}
-                className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
               >
                 Reveal yourself to {response.author?.display_name}
               </button>

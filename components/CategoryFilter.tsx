@@ -16,9 +16,9 @@ export default function CategoryFilter({ value, onChange }: CategoryFilterProps)
         <button
           key={option.value}
           onClick={() => onChange(option.value)}
-          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all pill-hover ${
             value === option.value
-              ? 'bg-teal-600 text-white'
+              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
               : 'bg-warm-100 text-warm-600 hover:bg-warm-200'
           }`}
         >

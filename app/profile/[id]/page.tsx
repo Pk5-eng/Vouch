@@ -192,13 +192,19 @@ export default function ProfilePage() {
                 <span>{outcomeCount} loops closed</span>
               </div>
 
-              {helpfulnessLevel && (
-                <div className="mt-3">
-                  <Badge variant="teal">{helpfulnessLevel}</Badge>
-                  <p className="text-xs text-warm-400 mt-1">
-                    Recognized as helpful by {helpfulness!.total_helpful_ratings} people across {helpfulness!.questions_helped_on} conversations
-                  </p>
-                </div>
+              {/* Valued by score — always visible */}
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-sm font-medium text-indigo-700">
+                  Valued by {helpfulness?.total_helpful_ratings || 0} {(helpfulness?.total_helpful_ratings || 0) === 1 ? 'person' : 'people'}
+                </span>
+                {helpfulnessLevel && (
+                  <Badge variant="indigo">{helpfulnessLevel}</Badge>
+                )}
+              </div>
+              {helpfulness && helpfulness.total_helpful_ratings > 0 && (
+                <p className="text-xs text-warm-400 mt-1">
+                  Across {helpfulness.questions_helped_on} {helpfulness.questions_helped_on === 1 ? 'conversation' : 'conversations'}
+                </p>
               )}
 
               {isOwnProfile && (
@@ -232,7 +238,7 @@ export default function ProfilePage() {
                             <Link
                               key={g.id}
                               href={`/groups/${g.id}/invite`}
-                              className="block px-4 py-2 text-sm text-warm-700 hover:bg-warm-50 hover:text-teal-600"
+                              className="block px-4 py-2 text-sm text-warm-700 hover:bg-warm-50 hover:text-indigo-600"
                             >
                               {g.name}
                             </Link>
