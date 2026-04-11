@@ -63,6 +63,13 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // AUTH BYPASS: Skip login requirement during development.
+  // Uncomment the block below to re-enable auth guards.
+  if (path === '/') {
+    return redirectTo('/feed');
+  }
+
+  /*
   // If not logged in and trying to access protected routes, redirect to login
   if (!user && path !== '/') {
     const params: Record<string, string> = {};
@@ -96,6 +103,7 @@ export async function middleware(request: NextRequest) {
       return redirectTo('/feed');
     }
   }
+  */
 
   return supabaseResponse;
 }
