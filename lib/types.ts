@@ -4,13 +4,23 @@ export type QuestionStatus = 'open' | 'resolved';
 export type GroupRole = 'creator' | 'member';
 export type NotificationType = 'new_response' | 'marked_helpful' | 'outcome_posted' | 'group_invite' | 'group_question' | 'vouch_received';
 
+export const CATEGORY_ICONS: Record<string, string> = {
+  all: '&#10024;',
+  career: '&#128188;',
+  academics: '&#127891;',
+  life: '&#127758;',
+  wellbeing: '&#129505;',
+  logistics: '&#9881;&#65039;',
+  building: '&#128640;',
+};
+
 export const CATEGORIES: { value: Category; label: string }[] = [
   { value: 'career', label: 'Career' },
   { value: 'academics', label: 'Academics' },
   { value: 'life', label: 'Life' },
-  { value: 'emotional', label: 'Emotional' },
+  { value: 'emotional', label: 'Wellbeing' },
   { value: 'logistics', label: 'Logistics' },
-  { value: 'building', label: 'Building Together' },
+  { value: 'building', label: 'Building' },
 ];
 
 export interface User {

@@ -28,7 +28,7 @@ export default function QuestionCard({ question }: QuestionCardProps) {
 
   return (
     <Link href={`/question/${question.id}`}>
-      <div className="bg-white rounded-xl border border-warm-100 p-5 hover-lift cursor-pointer">
+      <div className="bg-white rounded-xl border border-warm-100 p-5 hover-lift card-glow cursor-pointer animate-fade-in-up">
         <div className="flex items-center gap-3 mb-3">
           <Avatar
             name={authorName}
@@ -55,7 +55,7 @@ export default function QuestionCard({ question }: QuestionCardProps) {
 
         <div className="flex items-center gap-2 text-sm">
           <Badge variant={question.category === 'emotional' ? 'veiled' : 'default'}>
-            {question.category.charAt(0).toUpperCase() + question.category.slice(1)}
+            {question.category === 'emotional' ? 'Wellbeing' : question.category === 'building' ? 'Building' : question.category.charAt(0).toUpperCase() + question.category.slice(1)}
           </Badge>
           <span className="text-warm-400">&middot;</span>
           <span className="text-warm-400">
