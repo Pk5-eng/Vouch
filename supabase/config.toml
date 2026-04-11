@@ -1,17 +1,44 @@
+# Vouch — Supabase Project Configuration
+# Apply to hosted project: supabase link && supabase config push
+
 [project]
 id = ""
 
+# ============================================================
+# AUTH
+# ============================================================
+
 [auth]
-# Increase email rate limit from the default of 2 per hour to 10 per hour.
-# This prevents "email rate limit exceeded" errors during normal usage.
 site_url = "http://localhost:3000"
 enable_signup = true
 
+# Session tokens last 7 days; refresh tokens last 30 days.
+# Users stay signed in across browser restarts without re-logging.
+[auth.sessions]
+timebox = "168h"               # 7-day access tokens
+inactivity_timeout = "720h"    # 30-day refresh token lifetime
+
 [auth.email]
 enable_signup = true
-double_confirm_changes = true
-enable_confirmations = false
+double_confirm_changes = false
+enable_confirmations = false    # No email confirmation on sign-up — low friction
 
 [auth.rate_limit]
-# Allow up to 10 magic-link / OTP emails per hour per email address (default: 2)
-email_sent = 10
+email_sent = 100                # generous email limit (default: 2)
+sms_sent = 100
+token_refresh = 1000            # allow frequent token refreshes
+sign_in_sign_ups = 1000         # no practical limit on sign-in attempts per hour
+
+# ============================================================
+# CAPACITY NOTES (hosted Supabase free tier)
+# ============================================================
+#
+# Database:  500 MB storage  → easily holds 1,000 users + 10,000 messages.
+#            Typical row: ~0.5 KB. 11,000 rows ≈ 5.5 MB (< 2% of quota).
+#
+# Auth:      50,000 monthly active users on free tier — no concern at 1,000.
+#
+# Realtime:  200 concurrent connections — fine for early stage.
+#
+# No row-count limits exist on Supabase; storage is the only constraint.
+# The schema already has indexes on all hot query paths (see schema.sql).

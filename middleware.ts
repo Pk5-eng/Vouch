@@ -18,22 +18,26 @@ export async function middleware(request: NextRequest) {
           );
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, {
+              ...options,
+              // Keep user signed in for 30 days
+              maxAge: 60 * 60 * 24 * 30,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+            });
           );
         },
       },
     }
   );
 
-  // IMPORTANT: call getUser() to refresh the session token.
-  // The refreshed cookies are stored on supabaseResponse.
+  // Refresh session token — the updated cookies are written to supabaseResponse.
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
 
-  // Helper: create a redirect that preserves Supabase session cookies
   function redirectTo(pathname: string, searchParams?: Record<string, string>) {
     const url = request.nextUrl.clone();
     url.pathname = pathname;
@@ -41,19 +45,18 @@ export async function middleware(request: NextRequest) {
       Object.entries(searchParams).forEach(([k, v]) => url.searchParams.set(k, v));
     }
     const redirectResponse = NextResponse.redirect(url);
-    // Copy all Supabase session cookies to the redirect response
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
     });
     return redirectResponse;
   }
 
-  // Allow auth callback always
+  // Always allow auth callback
   if (path.startsWith('/auth/callback')) {
     return supabaseResponse;
   }
 
-  // If logged in and visiting auth pages, redirect to feed
+  // Logged-in user visiting auth pages → go to feed
   if (user && path.startsWith('/auth')) {
     return redirectTo('/feed');
   }
@@ -63,7 +66,34 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // DEV BYPASS: skip auth — go straight to feed
+  // Not logged in → redirect to login
+  if (!user) {
+    if (path === '/') {
+      return redirectTo('/auth/login');
+    }
+    const params: Record<string, string> = {};
+    if (path !== '/feed') params.next = path;
+    return redirectTo('/auth/login', params);
+  }
+
+  // Logged in — check onboarding
+  const { data: profile } = await supabase
+    .from('users')
+    .select('id')
+    .eq('id', user.id)
+    .single();
+
+  if (!profile && path !== '/onboarding') {
+    const next = path !== '/' && path !== '/feed' ? path : null;
+    const params: Record<string, string> = {};
+    if (next) params.next = next;
+    return redirectTo('/onboarding', params);
+  }
+
+  if (profile && path === '/onboarding') {
+    return redirectTo('/feed');
+  }
+
   if (path === '/') {
     return redirectTo('/feed');
   }

@@ -9,21 +9,25 @@ import Card from '@/components/ui/Card';
 
 const COOLDOWN_SECONDS = 60;
 
-type AuthMode = 'password' | 'magic-link';
-
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [authMode, setAuthMode] = useState<AuthMode>('password');
   const [isSignUp, setIsSignUp] = useState(false);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [cooldown, setCooldown] = useState(0);
+  const [showMagicLink, setShowMagicLink] = useState(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = createClient();
+
+  // Pre-fill email if user visited before
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('vouch-email');
+    if (savedEmail) setEmail(savedEmail);
+  }, []);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -36,24 +40,21 @@ function LoginForm() {
     setLoading(true);
     setError('');
 
+    // Remember email for next visit
+    localStorage.setItem('vouch-email', email);
+
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signUp({ email, password });
       if (error) {
         setError(error.message);
         setLoading(false);
         return;
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         if (error.message === 'Invalid login credentials') {
-          setError('Invalid email or password. If you don\u2019t have an account, click "Create account" below.');
+          setError('Wrong email or password. Need an account? Click "Create account".');
         } else {
           setError(error.message);
         }
@@ -72,6 +73,8 @@ function LoginForm() {
     setLoading(true);
     setError('');
 
+    localStorage.setItem('vouch-email', email);
+
     const next = searchParams.get('next');
     const callbackUrl = next
       ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
@@ -79,15 +82,14 @@ function LoginForm() {
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        emailRedirectTo: callbackUrl,
-      },
+      options: { emailRedirectTo: callbackUrl },
     });
 
     if (error) {
       if (error.message.toLowerCase().includes('rate limit')) {
-        setError('Too many attempts. Please wait a minute or use password sign-in instead.');
+        setError('Too many attempts. Use password sign-in instead.');
         setCooldown(COOLDOWN_SECONDS);
+        setShowMagicLink(false);
       } else {
         setError(error.message);
       }
@@ -100,78 +102,38 @@ function LoginForm() {
 
   if (sent) {
     return (
-      <Card className="p-8">
+      <Card className="p-8 animate-fade-in-up">
         <div className="text-center py-4">
-          <div className="text-4xl mb-4">&#9993;</div>
+          <div className="text-5xl mb-4">&#9993;&#65039;</div>
           <h2 className="text-lg font-semibold text-warm-900 mb-2">Check your email</h2>
           <p className="text-warm-500 text-sm">
-            We sent a magic link to <strong>{email}</strong>. Click the link to sign in.
+            We sent a magic link to <strong>{email}</strong>.<br />Click it to sign in instantly.
           </p>
-          <button
-            type="button"
-            className="mt-4 text-sm text-warm-400 hover:text-warm-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={cooldown > 0}
-            onClick={() => { setSent(false); }}
-          >
-            {cooldown > 0 ? `Resend available in ${cooldown}s` : 'Didn\u2019t get it? Resend'}
-          </button>
+          <div className="mt-6 flex flex-col gap-2">
+            <button
+              type="button"
+              className="text-sm text-warm-400 hover:text-warm-600 disabled:opacity-50"
+              disabled={cooldown > 0}
+              onClick={() => setSent(false)}
+            >
+              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Didn\u2019t get it? Try again'}
+            </button>
+            <button
+              type="button"
+              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              onClick={() => { setSent(false); setShowMagicLink(false); }}
+            >
+              Use password instead
+            </button>
+          </div>
         </div>
       </Card>
     );
   }
 
-  return (
-    <Card className="p-8">
-      {authMode === 'password' ? (
-        <form onSubmit={handlePasswordAuth} className="space-y-5">
-          <Input
-            label="Email address"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-            error={error}
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={isSignUp ? 'Create a password (min 6 chars)' : 'Enter your password'}
-            required
-            minLength={6}
-          />
-          <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? 'Signing in...' : isSignUp ? 'Create account' : 'Sign in'}
-          </Button>
-          <p className="text-center text-sm text-warm-500">
-            {isSignUp ? 'Already have an account?' : 'Don\u2019t have an account?'}{' '}
-            <button
-              type="button"
-              className="text-indigo-600 hover:text-indigo-700 font-medium"
-              onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
-            >
-              {isSignUp ? 'Sign in' : 'Create account'}
-            </button>
-          </p>
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-warm-200" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-warm-400">or</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="w-full text-sm text-warm-500 hover:text-warm-700 transition-colors"
-            onClick={() => { setAuthMode('magic-link'); setError(''); }}
-          >
-            Sign in with magic link instead
-          </button>
-        </form>
-      ) : (
+  if (showMagicLink) {
+    return (
+      <Card className="p-8 animate-fade-in-up">
         <form onSubmit={handleMagicLink} className="space-y-5">
           <Input
             label="Email address"
@@ -186,25 +148,62 @@ function LoginForm() {
             {loading ? 'Sending...' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Send magic link'}
           </Button>
           <p className="text-xs text-warm-400 text-center">
-            We&apos;ll send you a magic link — no password needed.
+            No password needed — we&apos;ll email you a sign-in link.
           </p>
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-warm-200" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-white px-3 text-warm-400">or</span>
-            </div>
-          </div>
           <button
             type="button"
             className="w-full text-sm text-warm-500 hover:text-warm-700 transition-colors"
-            onClick={() => { setAuthMode('password'); setError(''); }}
+            onClick={() => { setShowMagicLink(false); setError(''); }}
           >
-            Sign in with password instead
+            &larr; Back to password sign in
           </button>
         </form>
-      )}
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-8 animate-fade-in-up">
+      <form onSubmit={handlePasswordAuth} className="space-y-5">
+        <Input
+          label="Email address"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          required
+          error={error}
+        />
+        <Input
+          label="Password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder={isSignUp ? 'Create a password (min 6 chars)' : 'Your password'}
+          required
+          minLength={6}
+        />
+        <Button type="submit" className="w-full" size="lg" disabled={loading}>
+          {loading ? (isSignUp ? 'Creating...' : 'Signing in...') : isSignUp ? 'Create account & enter' : 'Sign in'}
+        </Button>
+
+        <div className="flex items-center justify-between text-sm">
+          <button
+            type="button"
+            className="text-indigo-600 hover:text-indigo-700 font-medium"
+            onClick={() => { setIsSignUp(!isSignUp); setError(''); }}
+          >
+            {isSignUp ? 'I have an account' : 'Create account'}
+          </button>
+          <button
+            type="button"
+            className="text-warm-400 hover:text-warm-600 transition-colors"
+            onClick={() => { setShowMagicLink(true); setError(''); }}
+          >
+            Use magic link
+          </button>
+        </div>
+      </form>
     </Card>
   );
 }
@@ -213,8 +212,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-warm-50 px-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold logo-gradient mb-2">Vouch</h1>
+        <div className="text-center mb-8 animate-fade-in-up">
+          <h1 className="text-4xl font-bold logo-gradient mb-3">Vouch</h1>
           <p className="text-warm-500 text-lg leading-relaxed">
             In a world with a billion opinions,<br />filter the ones that matter.
           </p>
@@ -223,6 +222,10 @@ export default function LoginPage() {
         <Suspense fallback={<div className="text-center py-8 text-warm-400">Loading...</div>}>
           <LoginForm />
         </Suspense>
+
+        <p className="text-center text-xs text-warm-400 mt-6">
+          Your session stays active for 30 days — no repeat logins.
+        </p>
       </div>
     </div>
   );
