@@ -41,7 +41,8 @@ export default function FeedPage() {
       query = query.eq('category', cat);
     }
 
-    const { data } = await query;
+    const { data, error: queryError } = await query;
+    if (queryError) { setLoading(false); return; }
 
     const mapped = (data || []).map((q) => {
       const isVeiled = q.is_veiled;
@@ -65,6 +66,7 @@ export default function FeedPage() {
   }, [supabase]);
 
   const fetchGroups = useCallback(async () => {
+    try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
@@ -93,6 +95,7 @@ export default function FeedPage() {
       );
       setUserGroups(groupsWithCounts as (TrustGroup & { member_count: number })[]);
     }
+    } catch { /* no auth session — skip groups */ }
   }, [supabase]);
 
   useEffect(() => {

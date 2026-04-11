@@ -63,38 +63,9 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // If not logged in and trying to access protected routes, redirect to login
-  if (!user && path !== '/') {
-    const params: Record<string, string> = {};
-    if (path !== '/feed') params.next = path;
-    return redirectTo('/auth/login', params);
-  }
-
-  // If logged in, check if onboarded
-  if (user) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', user.id)
-      .single();
-
-    // Not onboarded yet — redirect to onboarding (unless already there)
-    if (!profile && path !== '/onboarding') {
-      const next = request.nextUrl.searchParams.get('next') || (path !== '/' && path !== '/feed' ? path : null);
-      const params: Record<string, string> = {};
-      if (next) params.next = next;
-      return redirectTo('/onboarding', params);
-    }
-
-    // Already onboarded but visiting onboarding — redirect to feed
-    if (profile && path === '/onboarding') {
-      return redirectTo('/feed');
-    }
-
-    // Logged in and at root — redirect to feed
-    if (profile && path === '/') {
-      return redirectTo('/feed');
-    }
+  // DEV BYPASS: skip auth — go straight to feed
+  if (path === '/') {
+    return redirectTo('/feed');
   }
 
   return supabaseResponse;
