@@ -1,34 +1,33 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import NotificationBell from './NotificationBell';
 import Avatar from './ui/Avatar';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import type { User } from '@/lib/types';
+import { clearLocalUser, getLocalUser, syncAuthCookie, type LocalUser } from '@/lib/local-auth';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
+  const [user, setUser] = useState<LocalUser | null>(null);
   const { theme, toggle } = useTheme();
-  const supabase = createClient();
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        const { data } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-        if (data) setUser(data as User);
-      }
-    };
-    fetchUser();
-  }, [supabase]);
+    const localUser = getLocalUser();
+    if (!localUser) {
+      router.replace('/');
+      return;
+    }
+    syncAuthCookie();
+    setUser(localUser);
+  }, [router]);
+
+  const handleSignOut = () => {
+    clearLocalUser();
+    router.replace('/');
+  };
 
   const isFeed = pathname === '/feed' || pathname === '/';
   const isGroups = pathname.startsWith('/groups');
@@ -94,9 +93,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <NotificationBell />
             {user && (
-              <Link href={`/profile/${user.id}`} className="ml-1 group">
-                <Avatar name={user.display_name} url={user.avatar_url} size="sm" />
-              </Link>
+              <>
+                <Link href={`/profile/${user.id}`} className="ml-1 group">
+                  <Avatar name={user.name} url={null} size="sm" />
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="ml-1 px-3 py-1.5 rounded-lg text-xs font-medium text-warm-500 hover:text-warm-800 hover:bg-warm-100 transition-all"
+                  aria-label="Sign out"
+                >
+                  Sign out
+                </button>
+              </>
             )}
           </div>
         </div>

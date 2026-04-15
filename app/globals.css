@@ -32,6 +32,9 @@
 }
 
 /* Light mode (default) */
+html {
+  background: var(--color-warm-50);
+}
 body {
   background: var(--color-warm-50);
   color: var(--color-warm-900);
@@ -41,10 +44,14 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Dark mode */
+/* Dark mode — paint both html and body so scroll/overscroll areas stay dark */
+html:has(body.dark) {
+  background: #0f0f14;
+}
 body.dark {
   background: #0f0f14;
   color: #e8e6e3;
+  color-scheme: dark;
 }
 
 .dark .bg-white { background-color: #1a1a24 !important; }
@@ -55,6 +62,22 @@ body.dark {
 .dark .bg-indigo-50 { background-color: #1e1b4b !important; }
 .dark .bg-indigo-100 { background-color: #252370 !important; }
 .dark .bg-amber-50 { background-color: #2a2000 !important; }
+
+/* Opacity-variant utilities that Tailwind emits as escaped selectors —
+   these slipped through the plain bg-white/bg-indigo-50 overrides above. */
+.dark .bg-white\/80 { background-color: rgba(26, 26, 36, 0.85) !important; }
+.dark .bg-white\/50 { background-color: rgba(26, 26, 36, 0.5) !important; }
+.dark .bg-indigo-50\/50 { background-color: rgba(30, 27, 75, 0.5) !important; }
+.dark .bg-amber-50\/50 { background-color: rgba(42, 32, 0, 0.5) !important; }
+
+/* Gradient cards (e.g. `bg-gradient-to-br from-white to-indigo-50/50`)
+   keep a white stop in dark mode because `from-white` sets a CSS var.
+   Kill the gradient image and fall back to a solid dark card surface. */
+.dark .from-white,
+.dark [class*="from-white"] {
+  background-image: none !important;
+  background-color: #1a1a24 !important;
+}
 
 .dark .text-warm-900 { color: #e8e6e3 !important; }
 .dark .text-warm-800 { color: #d6d3d1 !important; }

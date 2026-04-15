@@ -293,7 +293,7 @@ export default function CreateGroupPage() {
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <Button type="submit" size="lg" disabled={loading}>
-            {loading ? 'Creating...' : 'Create Group'}
+            {loading ? 'Creating...' : 'Create Huddle'}
           </Button>
         </form>
       </div>

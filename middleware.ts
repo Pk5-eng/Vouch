@@ -1,104 +1,60 @@
-import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+/**
+ * Prototype middleware.
+ *
+ * Auth is bypassed for the prototype — we read a lightweight cookie
+ * (`vouch-local-uid`) that the client sets after the onboarding form.
+ * The middleware only decides:
+ *   - signed-in users visiting `/` → go straight to `/feed`
+ *   - anonymous users visiting a gated route → send to `/` (onboarding)
+ *
+ * No Supabase, no session refresh, no network calls.
+ */
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, {
-              ...options,
-              // Keep user signed in for 30 days
-              maxAge: 60 * 60 * 24 * 30,
-              sameSite: 'lax',
-              secure: process.env.NODE_ENV === 'production',
-            });
-          );
-        },
-      },
-    }
-  );
+const AUTH_COOKIE = 'vouch-local-uid';
 
-  // Refresh session token — the updated cookies are written to supabaseResponse.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+// Public routes that never require onboarding to have been completed.
+const PUBLIC_PATHS = ['/'];
 
+function isPublicPath(path: string): boolean {
+  return PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
+export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  const hasUser = Boolean(request.cookies.get(AUTH_COOKIE)?.value);
 
-  function redirectTo(pathname: string, searchParams?: Record<string, string>) {
+  // The old Supabase /auth/* routes are dead in prototype mode — bounce
+  // everyone back to the onboarding landing (or feed if already signed in).
+  if (path === '/auth' || path.startsWith('/auth/')) {
     const url = request.nextUrl.clone();
-    url.pathname = pathname;
-    if (searchParams) {
-      Object.entries(searchParams).forEach(([k, v]) => url.searchParams.set(k, v));
-    }
-    const redirectResponse = NextResponse.redirect(url);
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
-    });
-    return redirectResponse;
+    url.pathname = hasUser ? '/feed' : '/';
+    return NextResponse.redirect(url);
   }
 
-  // Always allow auth callback
-  if (path.startsWith('/auth/callback')) {
-    return supabaseResponse;
+  // Old /onboarding page (Supabase-based) is replaced by the landing form.
+  if (path === '/onboarding' || path.startsWith('/onboarding/')) {
+    const url = request.nextUrl.clone();
+    url.pathname = hasUser ? '/feed' : '/';
+    return NextResponse.redirect(url);
   }
 
-  // Logged-in user visiting auth pages → go to feed
-  if (user && path.startsWith('/auth')) {
-    return redirectTo('/feed');
+  // Signed-in user hitting the landing page → drop them straight into the feed.
+  if (hasUser && path === '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/feed';
+    return NextResponse.redirect(url);
   }
 
-  // Allow auth routes for unauthenticated users
-  if (path.startsWith('/auth')) {
-    return supabaseResponse;
+  // Anonymous user on a gated route → send them to the onboarding landing.
+  if (!hasUser && !isPublicPath(path)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    return NextResponse.redirect(url);
   }
 
-  // Not logged in → redirect to login
-  if (!user) {
-    if (path === '/') {
-      return redirectTo('/auth/login');
-    }
-    const params: Record<string, string> = {};
-    if (path !== '/feed') params.next = path;
-    return redirectTo('/auth/login', params);
-  }
-
-  // Logged in — check onboarding
-  const { data: profile } = await supabase
-    .from('users')
-    .select('id')
-    .eq('id', user.id)
-    .single();
-
-  if (!profile && path !== '/onboarding') {
-    const next = path !== '/' && path !== '/feed' ? path : null;
-    const params: Record<string, string> = {};
-    if (next) params.next = next;
-    return redirectTo('/onboarding', params);
-  }
-
-  if (profile && path === '/onboarding') {
-    return redirectTo('/feed');
-  }
-
-  if (path === '/') {
-    return redirectTo('/feed');
-  }
-
-  return supabaseResponse;
+  return NextResponse.next();
 }
 
 export const config = {

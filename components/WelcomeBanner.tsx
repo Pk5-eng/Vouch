@@ -22,7 +22,8 @@ export default function WelcomeBanner() {
 
   return (
     <Banner onDismiss={handleDismiss}>
-      <h3 className="text-lg font-semibold text-warm-900 mb-2">Welcome to Vouch</h3>
+      <h3 className="text-lg font-semibold text-warm-900 mb-1">Welcome to Vouch</h3>
+      <p className="text-sm font-medium text-indigo-600 mb-2">Show up for others.</p>
       <p className="text-sm text-warm-600 leading-relaxed mb-4">
         This is the global feed — real questions from real people.
         Browse, respond with your experience, or ask your own question.

@@ -214,8 +214,9 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8 animate-fade-in-up">
           <h1 className="text-4xl font-bold logo-gradient mb-3">Vouch</h1>
-          <p className="text-warm-500 text-lg leading-relaxed">
-            In a world with a billion opinions,<br />filter the ones that matter.
+          <p className="text-warm-700 text-xl font-medium mb-2">Show up for others.</p>
+          <p className="text-warm-500 text-sm leading-relaxed">
+            Real questions, real experiences, from people who have been there.
           </p>
         </div>
 

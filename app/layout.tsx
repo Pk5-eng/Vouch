@@ -3,8 +3,8 @@ import { ThemeProvider } from '@/lib/theme';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Vouch — Trust-based social platform',
-  description: 'In a world with a billion opinions, filter the ones that matter.',
+  title: 'Vouch — Show up for others',
+  description: 'Show up for others. Real questions, real experiences, from people who have been there.',
 };
 
 export default function RootLayout({
