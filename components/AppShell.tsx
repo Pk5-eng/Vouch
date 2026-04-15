@@ -37,7 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <header className="bg-white/80 backdrop-blur-md border-b border-warm-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/feed" className="flex flex-col leading-none group">
+            <Link href="/feed" className="flex flex-col items-center leading-none group">
               <span className="text-2xl font-bold logo-gradient">Vouch</span>
               <span className="text-[10px] uppercase tracking-[0.15em] text-warm-400 mt-0.5 group-hover:text-indigo-500 transition-colors">
                 Show up for others

@@ -111,13 +111,14 @@ export default function FeedPage() {
       <div className="space-y-8">
         <WelcomeBanner />
 
-        {/* Hero row: headline + ask button */}
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-warm-900">Community Questions</h1>
-            <p className="text-warm-500 mt-1">Real questions, real experiences. Show up for someone.</p>
+        {/* Hero row: aligned to the center feed column */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
+          <div className="hidden lg:block lg:col-span-3" aria-hidden="true" />
+          <div className="lg:col-span-6">
+            <h1 className="text-3xl font-bold text-warm-900 tracking-tight">Community Questions</h1>
+            <p className="text-warm-500 mt-2">Real questions, real experiences.</p>
           </div>
-          <div className="hidden md:block">
+          <div className="hidden md:flex lg:col-span-3 justify-start lg:justify-end">
             <Link href="/ask">
               <Button size="lg">
                 <span className="mr-2">&#10024;</span> Ask a Question
