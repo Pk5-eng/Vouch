@@ -111,24 +111,9 @@ export default function FeedPage() {
       <div className="space-y-8">
         <WelcomeBanner />
 
-        {/* Hero row: aligned to the center feed column */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-end">
-          <div className="hidden lg:block lg:col-span-3" aria-hidden="true" />
-          <div className="lg:col-span-6">
-            <h1 className="text-3xl font-bold text-warm-900 tracking-tight">Community Questions</h1>
-            <p className="text-warm-500 mt-2">Real questions, real experiences.</p>
-          </div>
-          <div className="hidden md:flex lg:col-span-3 justify-start lg:justify-end">
-            <Link href="/ask">
-              <Button size="lg">
-                <span className="mr-2">&#10024;</span> Ask a Question
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Three-column layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Three-column layout: categories | heading+feed | ask+huddles
+            All three columns start at the top so their first element aligns. */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left sidebar: categories */}
           <aside className="lg:col-span-3">
             <div className="lg:sticky lg:top-24 space-y-6">
@@ -155,7 +140,11 @@ export default function FeedPage() {
           </aside>
 
           {/* Main feed */}
-          <div className="lg:col-span-6 space-y-4">
+          <div className="lg:col-span-6 space-y-6">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-warm-900 tracking-tight">Community Questions</h1>
+              <p className="text-warm-500 mt-2">Real questions, real experiences.</p>
+            </div>
             {loading && questions.length === 0 ? (
               <div className="text-center py-16">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent mb-4" />
@@ -190,9 +179,14 @@ export default function FeedPage() {
             )}
           </div>
 
-          {/* Right sidebar: Huddles */}
+          {/* Right sidebar: Ask button + Huddles */}
           <aside className="lg:col-span-3">
             <div className="lg:sticky lg:top-24 space-y-6">
+              <Link href="/ask" className="hidden md:block">
+                <Button size="lg" className="w-full">
+                  <span className="mr-2">&#10024;</span> Ask a Question
+                </Button>
+              </Link>
               <Card className="p-5 border-indigo-100 bg-gradient-to-br from-white to-indigo-50/50">
                 <h3 className="font-semibold text-warm-800 mb-2 flex items-center gap-2">
                   <span className="text-lg icon-hover inline-block">&#129309;</span> Huddles
