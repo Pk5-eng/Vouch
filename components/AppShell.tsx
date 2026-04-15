@@ -6,28 +6,27 @@ import NotificationBell from './NotificationBell';
 import Avatar from './ui/Avatar';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/lib/theme';
-import { clearLocalUser, getLocalUser, syncAuthCookie, type LocalUser } from '@/lib/local-auth';
+import { getLocalUser, syncAuthCookie, type LocalUser } from '@/lib/local-auth';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<LocalUser | null>(null);
+  // Lazy-initialize from localStorage so the first render already has the
+  // correct user — avoids an extra render-after-effect cycle that was
+  // contributing to INP during client-side navigation.
+  const [user] = useState<LocalUser | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return getLocalUser();
+  });
   const { theme, toggle } = useTheme();
 
   useEffect(() => {
-    const localUser = getLocalUser();
-    if (!localUser) {
+    if (!user) {
       router.replace('/');
       return;
     }
     syncAuthCookie();
-    setUser(localUser);
-  }, [router]);
-
-  const handleSignOut = () => {
-    clearLocalUser();
-    router.replace('/');
-  };
+  }, [router, user]);
 
   const isFeed = pathname === '/feed' || pathname === '/';
   const isGroups = pathname.startsWith('/groups');
@@ -38,8 +37,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <header className="bg-white/80 backdrop-blur-md border-b border-warm-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/feed" className="text-2xl font-bold logo-gradient">
-              Vouch
+            <Link href="/feed" className="flex flex-col leading-none group">
+              <span className="text-2xl font-bold logo-gradient">Vouch</span>
+              <span className="text-[10px] uppercase tracking-[0.15em] text-warm-400 mt-0.5 group-hover:text-indigo-500 transition-colors">
+                Show up for others
+              </span>
             </Link>
             {/* Navigation tabs inline in header */}
             {(isFeed || isGroups) && (
@@ -52,7 +54,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                       : 'text-warm-500 hover:text-warm-700 hover:bg-warm-100'
                   }`}
                 >
-                  <span className="mr-1.5">&#127760;</span>Global Feed
+                  <span className="mr-1.5">&#127760;</span>Community
                 </Link>
                 <Link
                   href="/groups"
@@ -93,18 +95,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </button>
             <NotificationBell />
             {user && (
-              <>
-                <Link href={`/profile/${user.id}`} className="ml-1 group">
-                  <Avatar name={user.name} url={null} size="sm" />
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="ml-1 px-3 py-1.5 rounded-lg text-xs font-medium text-warm-500 hover:text-warm-800 hover:bg-warm-100 transition-all"
-                  aria-label="Sign out"
-                >
-                  Sign out
-                </button>
-              </>
+              <Link
+                href={`/profile/${user.id}`}
+                className="ml-1 group"
+                aria-label="Your profile"
+                title="Your profile"
+              >
+                <Avatar name={user.name} url={null} size="sm" />
+              </Link>
             )}
           </div>
         </div>
@@ -122,7 +120,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   : 'border-transparent text-warm-500 hover:text-warm-700'
               }`}
             >
-              <span className="mr-1">&#127760;</span> Feed
+              <span className="mr-1">&#127760;</span> Community
             </Link>
             <Link
               href="/groups"

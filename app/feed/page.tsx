@@ -114,8 +114,8 @@ export default function FeedPage() {
         {/* Hero row: headline + ask button */}
         <div className="flex items-end justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-warm-900">Community Feed</h1>
-            <p className="text-warm-500 mt-1">Real questions, real experiences. Dive in.</p>
+            <h1 className="text-2xl font-bold text-warm-900">Community Questions</h1>
+            <p className="text-warm-500 mt-1">Real questions, real experiences. Show up for someone.</p>
           </div>
           <div className="hidden md:block">
             <Link href="/ask">

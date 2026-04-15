@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Hide the Vercel Live Feedback / Toolbar that is auto-injected on
+   preview deployments. The real fix is to disable "Comments" / "Toolbar"
+   in Vercel Project Settings, but this keeps it out of view regardless. */
+iframe[src*="vercel.live"],
+iframe[src*="vercel-live"],
+iframe[src*="vercel-user-meta"],
+vercel-live-feedback,
+#vercel-live,
+[data-vercel-toolbar],
+[class*="vercel-live-feedback"] {
+  display: none !important;
+}
+
 @theme inline {
   --color-indigo-50: #eef2ff;
   --color-indigo-100: #e0e7ff;
